@@ -6,11 +6,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatEur(value: number): string {
+export function formatEur(value: number, exact = false): string {
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  const cents = Math.round(value * 100) % 100 !== 0;
   return new Intl.NumberFormat(localeTag(), {
     style: "currency",
     currency: "EUR",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: exact || cents ? 2 : 0,
+    minimumFractionDigits: exact && cents ? 2 : 0,
   }).format(value);
 }
 

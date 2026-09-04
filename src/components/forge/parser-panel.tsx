@@ -29,7 +29,17 @@ export function ParserPanel() {
   const [settings, setSettings] = useState(false);
   const [tagDraft, setTagDraft] = useState(amazonTag);
 
-  const applyRaw = (value: string, extras?: { title?: string | null; price?: number | null }) => {
+  const applyRaw = (
+    value: string,
+    extras?: {
+      title?: string | null;
+      price?: number | null;
+      image?: string | null;
+      brand?: string | null;
+      memory?: string | null;
+      vram?: number | null;
+    },
+  ) => {
     setRaw(value);
     setListing(value, extras);
   };
@@ -41,12 +51,21 @@ export function ParserPanel() {
     setBusy(true);
     try {
       const result = await inspectListingUrl({ data: { url } });
-      if (result.ok && (result.title || result.price)) {
-        applyRaw(value, { title: result.title, price: result.price });
+      if (result.ok && (result.title || result.price || result.image)) {
+        applyRaw(result.url || value, {
+          title: result.title,
+          price: result.price,
+          image: result.image,
+          brand: result.brand,
+          memory: result.memory,
+          vram: result.vram,
+        });
         toast.success(t("parser.fetched"));
+      } else {
+        toast.message(t("parser.fetchFail"));
       }
     } catch {
-      /* catalog match still stands */
+      toast.message(t("parser.fetchFail"));
     } finally {
       setBusy(false);
     }
@@ -113,7 +132,7 @@ export function ParserPanel() {
               onClick={() => void inspect(s.body)}
               className="min-h-11 rounded-full border border-border bg-surface px-3 py-2 text-left text-xs text-muted transition-colors duration-150 hover:border-border-strong hover:text-fg"
             >
-              {s.site} · {s.price}
+              {s.site} · {s.title}
             </button>
           ))}
         </div>

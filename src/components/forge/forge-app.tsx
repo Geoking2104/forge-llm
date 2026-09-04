@@ -57,9 +57,20 @@ export function ForgeApp() {
   const listingRaw = useForgeStore((s) => s.listingRaw);
   const listingTitle = useForgeStore((s) => s.listingTitle);
   const listingPrice = useForgeStore((s) => s.listingPrice);
+  const listingImage = useForgeStore((s) => s.listingImage);
+  const listingBrand = useForgeStore((s) => s.listingBrand);
+  const listingMemory = useForgeStore((s) => s.listingMemory);
+  const listingVram = useForgeStore((s) => s.listingVram);
   const pool = useForgeStore((s) => s.pool);
   const parsedListing = listingRaw.trim()
-    ? parseProductText(listingRaw, pool, { title: listingTitle, price: listingPrice })
+    ? parseProductText(listingRaw, pool, {
+        title: listingTitle,
+        price: listingPrice,
+        image: listingImage,
+        brand: listingBrand,
+        memory: listingMemory,
+        vram: listingVram,
+      })
     : null;
 
   const analysis = useMemo(

@@ -26,6 +26,10 @@ type ForgeState = {
   listingRaw: string;
   listingTitle: string | null;
   listingPrice: number | null;
+  listingImage: string | null;
+  listingBrand: string | null;
+  listingMemory: string | null;
+  listingVram: number | null;
   setHydrated: (v: boolean) => void;
   setLocale: (l: Locale) => void;
   setEntry: (e: EntryMode) => void;
@@ -41,7 +45,17 @@ type ForgeState = {
   resetDefaults: () => void;
   setAmazonTag: (tag: string) => void;
   logAffiliate: (event: Omit<AffiliateEvent, "at">) => void;
-  setListing: (raw: string, extras?: { title?: string | null; price?: number | null }) => void;
+  setListing: (
+    raw: string,
+    extras?: {
+      title?: string | null;
+      price?: number | null;
+      image?: string | null;
+      brand?: string | null;
+      memory?: string | null;
+      vram?: number | null;
+    },
+  ) => void;
 };
 
 const defaultA = "rtx-4090-24";
@@ -68,6 +82,10 @@ export const useForgeStore = create<ForgeState>()(
       listingRaw: "",
       listingTitle: null,
       listingPrice: null,
+      listingImage: null,
+      listingBrand: null,
+      listingMemory: null,
+      listingVram: null,
       setHydrated: (v) => set({ hydrated: v }),
       setLocale: (locale) => set({ locale }),
       setEntry: (entry) => set({ entry }),
@@ -130,6 +148,10 @@ export const useForgeStore = create<ForgeState>()(
           listingRaw,
           listingTitle: extras?.title ?? null,
           listingPrice: extras?.price ?? null,
+          listingImage: extras?.image ?? null,
+          listingBrand: extras?.brand ?? null,
+          listingMemory: extras?.memory ?? null,
+          listingVram: extras?.vram ?? null,
         }),
     }),
     {
@@ -150,6 +172,12 @@ export const useForgeStore = create<ForgeState>()(
         amazonTag: s.amazonTag,
         affiliateLog: s.affiliateLog,
         listingRaw: s.listingRaw,
+        listingTitle: s.listingTitle,
+        listingPrice: s.listingPrice,
+        listingImage: s.listingImage,
+        listingBrand: s.listingBrand,
+        listingMemory: s.listingMemory,
+        listingVram: s.listingVram,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<ForgeState>;

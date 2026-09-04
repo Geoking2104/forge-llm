@@ -1,50 +1,55 @@
-import { tokensPerSec, valueScore, vramFits } from "./calc";
+import { tokensPerSec, vramFits } from "./calc";
 import type { Hardware } from "./hardware";
 
-export type SuggestionKind = "cheaper" | "vram" | "faster" | "value";
+export type SuggestionKind = "deal";
 
 export type Suggestion = {
   kind: SuggestionKind;
   hardware: Hardware;
+  save: number;
 };
 
+/** At least as much VRAM and tok/s, strictly cheaper than the listing price. */
+export function suggestCheaperEquivalents(
+  current: Hardware,
+  listedPrice: number,
+  pool: Hardware[],
+  requiredVram: number,
+  modelWeightGB: number,
+): Suggestion[] {
+  if (!(listedPrice > 0)) return [];
+  const speed = tokensPerSec(current, modelWeightGB);
+  const listedFits = vramFits(current, requiredVram);
+
+  const deals = pool
+    .filter((h) => {
+      if (h.priceNum <= 0 || h.priceNum >= listedPrice) return false;
+      if (h.vram + 1e-6 < current.vram) return false;
+      if (tokensPerSec(h, modelWeightGB) + 1e-6 < speed) return false;
+      if (listedFits && !vramFits(h, requiredVram)) return false;
+      return true;
+    })
+    .sort((a, b) => a.priceNum - b.priceNum || b.vram - a.vram);
+
+  const seen = new Set<string>();
+  const unique: Suggestion[] = [];
+  for (const hardware of deals) {
+    const key = `${hardware.name}|${hardware.vram}|${hardware.priceNum}`;
+    if (seen.has(key) || seen.has(hardware.id)) continue;
+    seen.add(key);
+    seen.add(hardware.id);
+    unique.push({ kind: "deal", hardware, save: Math.max(0, listedPrice - hardware.priceNum) });
+    if (unique.length >= 4) break;
+  }
+  return unique;
+}
+
+/** @deprecated use suggestCheaperEquivalents */
 export function suggestAlternatives(
   current: Hardware,
   pool: Hardware[],
   requiredVram: number,
   modelWeightGB: number,
 ): Suggestion[] {
-  const others = pool.filter((h) => h.id !== current.id);
-  const pick = (kind: SuggestionKind, hw: Hardware | undefined): Suggestion | null =>
-    hw ? { kind, hardware: hw } : null;
-
-  const cheaper = others
-    .filter((h) => h.vram >= current.vram && h.priceNum < current.priceNum && vramFits(h, requiredVram))
-    .sort((a, b) => a.priceNum - b.priceNum)[0];
-
-  const vram = others
-    .filter((h) => h.vram > current.vram && h.priceNum <= current.priceNum * 1.4)
-    .sort((a, b) => a.priceNum / a.vram - b.priceNum / b.vram)[0];
-
-  const faster = others
-    .filter((h) => h.bandwidth > current.bandwidth && vramFits(h, requiredVram))
-    .sort((a, b) => b.bandwidth - a.bandwidth)[0];
-
-  const value = others
-    .filter((h) => vramFits(h, requiredVram))
-    .sort(
-      (a, b) =>
-        valueScore(tokensPerSec(b, modelWeightGB), b.priceNum) -
-        valueScore(tokensPerSec(a, modelWeightGB), a.priceNum),
-    )[0];
-
-  const ordered = [pick("cheaper", cheaper), pick("vram", vram), pick("faster", faster), pick("value", value)];
-  const seen = new Set<string>();
-  const unique: Suggestion[] = [];
-  for (const s of ordered) {
-    if (!s || seen.has(s.hardware.id)) continue;
-    seen.add(s.hardware.id);
-    unique.push(s);
-  }
-  return unique.slice(0, 3);
+  return suggestCheaperEquivalents(current, current.priceNum, pool, requiredVram, modelWeightGB);
 }

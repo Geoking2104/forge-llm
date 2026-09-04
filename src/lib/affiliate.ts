@@ -54,3 +54,23 @@ export function productOrSearchUrl(retailer: Retailer, query: string, asin?: str
   if (retailer.id === "amazon" && asin) return `https://www.amazon.fr/dp/${asin}`;
   return retailer.searchPath(query);
 }
+
+export function listingBuyUrl(
+  dest: string | null,
+  retailer: Retailer | null,
+  tags: AffiliateTags,
+  query: string,
+  asin?: string | null,
+): string | null {
+  if (dest) {
+    try {
+      const u = new URL(dest);
+      if (retailer) return withAffiliate(u.toString(), retailer, tags);
+      return u.toString();
+    } catch {
+      /* fall through */
+    }
+  }
+  if (!retailer || !query.trim()) return null;
+  return withAffiliate(productOrSearchUrl(retailer, query.trim(), asin), retailer, tags);
+}

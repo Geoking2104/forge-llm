@@ -1,15 +1,28 @@
+import { ExternalLink, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ParsedProduct } from "@/lib/parser";
 import { parsedToHardware } from "@/lib/parser";
-import { tokensPerSec, generationSeconds, vramFits } from "@/lib/calc";
-import { suggestAlternatives } from "@/lib/suggest";
-import { formatEur, formatNumber, formatDuration, cn } from "@/lib/utils";
-import { useForgeStore } from "@/lib/store";
+import { tokensPerSec, vramFits } from "@/lib/calc";
+import { suggestCheaperEquivalents } from "@/lib/suggest";
+import { formatEur, formatNumber, cn } from "@/lib/utils";
+import { useAffiliateTags, useForgeStore } from "@/lib/store";
 import type { Hardware } from "@/lib/hardware";
-import { ShopLinks } from "./shop-links";
+import { retailerByHost, RETAILERS } from "@/lib/retailers";
+import { listingBuyUrl } from "@/lib/affiliate";
+import { ShopMenu } from "./shop-links";
+import { ProductPhoto } from "./product-art";
+
+function hostRetailer(url: string | null) {
+  if (!url) return null;
+  try {
+    return retailerByHost(new URL(url).hostname);
+  } catch {
+    return null;
+  }
+}
 
 export function InspectPanel({
   parsed,
@@ -23,100 +36,133 @@ export function InspectPanel({
   const { t } = useTranslation();
   const pool = useForgeStore((s) => s.pool);
   const addHardware = useForgeStore((s) => s.addHardware);
-  const setSlot = useForgeStore((s) => s.setSlot);
   const setFocus = useForgeStore((s) => s.setFocusHardware);
   const setEntry = useForgeStore((s) => s.setEntry);
-  const hw = parsed.matched ?? parsedToHardware(parsed);
+  const setListing = useForgeStore((s) => s.setListing);
+  const tags = useAffiliateTags();
+  const log = useForgeStore((s) => s.logAffiliate);
+
+  const hw = parsedToHardware(parsed);
   const fits = vramFits(hw, requiredVram);
   const speed = tokensPerSec(hw, modelWeightGB);
-  const alts = parsed.matched ? suggestAlternatives(parsed.matched, pool, requiredVram, modelWeightGB) : [];
+  const listedPrice = parsed.priceExact ? parsed.priceNum : 0;
+  const alts = suggestCheaperEquivalents(hw, listedPrice, pool, requiredVram, modelWeightGB);
 
-  const inject = (slot?: "A" | "B" | "C") => {
+  const retailer =
+    (parsed.retailerId ? RETAILERS.find((r) => r.id === parsed.retailerId) : null) ??
+    hostRetailer(parsed.url);
+  const buyHref = listingBuyUrl(parsed.url, retailer, tags, parsed.name, parsed.asin);
+
+  const inject = () => {
     addHardware(hw);
-    if (slot) setSlot(slot, hw.id);
+    setFocus(hw.id);
+    setEntry("model");
   };
 
+  const chips = [
+    `${hw.vram} Go`,
+    parsed.memory,
+    `${formatNumber(hw.bandwidth)} Go/s`,
+    parsed.brand,
+  ].filter(Boolean) as string[];
+
   return (
-    <Card className="min-w-0">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-xl">{parsed.name}</CardTitle>
-            <CardDescription className="mt-1">
-              {parsed.site}
-              {parsed.asin ? ` · ASIN ${parsed.asin}` : ""}
-            </CardDescription>
+    <Card className="min-w-0 overflow-hidden">
+      <CardContent className="p-0">
+        <div className="grid min-w-0 gap-0 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+          <ProductPhoto src={parsed.image} alt={parsed.name} className="rounded-none" />
+          <div className="flex min-w-0 flex-col gap-5 p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium tracking-widest text-muted">{parsed.site}</p>
+                <h2 className="mt-1 font-display text-xl font-semibold tracking-tight text-pretty">
+                  {parsed.name}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-secondary hover:text-fg"
+                aria-label={t("parser.clear")}
+                onClick={() => setListing("")}
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant={fits ? "ok" : "danger"}>
+                {fits ? t("recommend.fits") : t("recommend.tooBig")}
+              </Badge>
+              <Badge variant={parsed.matched ? "ok" : "warn"}>
+                {parsed.matched ? t("parser.sku") : t("parser.estimate")}
+              </Badge>
+            </div>
+
+            {chips.length > 0 ? (
+              <p className="font-mono text-xs tabular-nums text-muted">{chips.join(" · ")}</p>
+            ) : null}
+
+            <dl className="grid grid-cols-3 gap-3">
+              <Stat
+                label={t("parser.toks")}
+                value={fits ? String(speed) : "—"}
+                hint={`${formatNumber(requiredVram, 1)} Go ${t("model.vram").toLowerCase()}`}
+                ok={fits}
+              />
+              <Stat label={t("parser.flops")} value={formatNumber(hw.tflops)} hint="TFLOPS" />
+              <Stat
+                label={t("parser.priceExact")}
+                value={parsed.priceExact ? formatEur(parsed.priceNum, true) : t("parser.noPrice")}
+                hint={parsed.priceExact ? parsed.site : undefined}
+              />
+            </dl>
+
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={inject}>
+                {t("parser.useStation")}
+              </Button>
+              {buyHref ? (
+                <Button size="sm" variant="outline" asChild>
+                  <a
+                    href={buyHref}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored nofollow"
+                    onClick={() =>
+                      log({ retailer: retailer?.id ?? parsed.site, sku: hw.id, query: parsed.name })
+                    }
+                  >
+                    {t("parser.buyThis")}
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                </Button>
+              ) : null}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1">
-            <Badge variant={parsed.matched ? "ok" : "warn"}>
-              {parsed.matched ? t("parser.sku") : t("parser.estimate")}
-            </Badge>
-            {fits ? <Badge variant="ok">{t("recommend.fits")}</Badge> : <Badge variant="danger">VRAM</Badge>}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        <div>
-          <p className="text-xs font-medium tracking-widest text-muted">{t("parser.vsModel")}</p>
-          <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat
-              label="VRAM"
-              value={`${hw.vram} Go`}
-              hint={`${formatNumber(requiredVram, 1)} Go ${t("model.vram").toLowerCase()}`}
-              ok={fits}
-            />
-            <Stat label="tok/s" value={fits ? String(speed) : "—"} hint={formatDuration(generationSeconds(speed, 512))} />
-            <Stat label="Go/s" value={String(hw.bandwidth)} />
-            <Stat label={t("slot.price")} value={formatEur(parsed.priceNum)} />
-          </dl>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => inject("A")}>
-            Slot A
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => inject("B")}>
-            Slot B
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => inject("C")}>
-            Slot C
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              addHardware(hw);
-              setFocus(hw.id);
-              setEntry("model");
-            }}
-          >
-            {t("parser.useStation")}
-          </Button>
-        </div>
-
-        <ShopLinks query={parsed.matched?.name ?? parsed.name} asin={parsed.asin} vendor={hw.vendor} sku={hw.id} />
-
-        {alts.length > 0 ? (
-          <div>
-            <p className="font-display text-base font-semibold tracking-tight">{t("parser.alts")}</p>
-            <p className="mt-1 text-sm text-muted">{t("parser.altsDesc")}</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div className="border-t border-border px-6 py-6">
+          <p className="font-display text-base font-semibold tracking-tight">{t("parser.shops")}</p>
+          <p className="mt-1 text-sm text-muted">{t("parser.altsDesc")}</p>
+          {parsed.priceExact && alts.length > 0 ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {alts.map((s) => (
-                <AltCard
+                <DealCard
                   key={s.hardware.id}
-                  kind={s.kind}
                   hardware={s.hardware}
-                  current={hw}
+                  save={s.save}
                   modelWeightGB={modelWeightGB}
                   onLoad={() => {
                     addHardware(s.hardware);
-                    setSlot("B", s.hardware.id);
+                    setFocus(s.hardware.id);
+                    setEntry("model");
                   }}
                 />
               ))}
             </div>
-          </div>
-        ) : null}
+          ) : (
+            <p className="mt-4 rounded-xl bg-secondary px-4 py-3 text-sm text-muted">{t("parser.noAlts")}</p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -144,44 +190,32 @@ function Stat({
   );
 }
 
-function AltCard({
-  kind,
+function DealCard({
   hardware,
-  current,
+  save,
   modelWeightGB,
   onLoad,
 }: {
-  kind: "cheaper" | "vram" | "faster" | "value";
   hardware: Hardware;
-  current: Hardware;
+  save: number;
   modelWeightGB: number;
   onLoad: () => void;
 }) {
   const { t } = useTranslation();
-  const why =
-    kind === "cheaper"
-      ? t("parser.whyCheaper", { delta: Math.max(0, current.priceNum - hardware.priceNum) })
-      : kind === "vram"
-        ? t("parser.whyVram", { vram: hardware.vram, from: current.vram })
-        : kind === "faster"
-          ? t("parser.whyFaster", { bw: hardware.bandwidth, from: current.bandwidth })
-          : t("parser.whyValue");
   const speed = tokensPerSec(hardware, modelWeightGB);
-
   return (
-    <div className="flex flex-col gap-2 rounded-xl bg-secondary p-4">
-      <p className="text-xs font-medium tracking-widest text-muted">{t(`parser.kind.${kind}`)}</p>
-      <p className="font-medium leading-snug">{hardware.name}</p>
-      <p className="font-display text-2xl font-semibold tabular-nums">
-        {speed}
-        <span className="ml-1 text-sm font-medium text-muted">tok/s</span>
-      </p>
-      <p className="text-sm text-muted">{why}</p>
+    <div className="flex flex-col gap-3 rounded-xl bg-secondary p-4">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-medium leading-snug">{hardware.name}</p>
+        <ShopMenu query={hardware.name} vendor={hardware.vendor} sku={hardware.id} />
+      </div>
+      <p className="font-display text-2xl font-semibold tabular-nums">{formatEur(hardware.priceNum)}</p>
+      <p className="text-sm text-ok">{t("parser.whyDeal", { delta: formatEur(save) })}</p>
       <p className="font-mono text-xs tabular-nums text-muted">
-        {hardware.vram} Go · {hardware.bandwidth} Go/s · {formatEur(hardware.priceNum)}
+        {speed} tok/s · {formatNumber(hardware.tflops)} TF · {hardware.vram} Go
       </p>
       <Button size="sm" variant="outline" onClick={onLoad}>
-        Slot B
+        {t("parser.useStation")}
       </Button>
     </div>
   );

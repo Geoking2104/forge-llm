@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export function GpuArt({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "relative aspect-video overflow-hidden rounded-2xl bg-secondary",
+        "relative aspect-square overflow-hidden rounded-2xl bg-secondary",
         className,
       )}
       aria-hidden
@@ -22,6 +23,30 @@ export function GpuArt({ className }: { className?: string }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+export function ProductPhoto({
+  src,
+  alt,
+  className,
+}: {
+  src: string | null;
+  alt: string;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return <GpuArt className={className} />;
+  return (
+    <div className={cn("relative aspect-square overflow-hidden rounded-2xl bg-secondary", className)}>
+      <img
+        src={src}
+        alt={alt}
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        className="h-full w-full object-contain p-4"
+      />
     </div>
   );
 }

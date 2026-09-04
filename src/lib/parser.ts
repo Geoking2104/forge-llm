@@ -2,6 +2,15 @@ import { DEFAULT_HARDWARE, type Hardware } from "./hardware";
 import { extractAsin, extractUrl } from "./affiliate";
 import { retailerByHost, type RetailerId } from "./retailers";
 
+export type ListingExtras = {
+  title?: string | null;
+  price?: number | null;
+  image?: string | null;
+  brand?: string | null;
+  memory?: string | null;
+  vram?: number | null;
+};
+
 export type ParsedProduct = {
   name: string;
   matched: Hardware | null;
@@ -9,12 +18,16 @@ export type ParsedProduct = {
   tflops: number;
   bandwidth: number;
   priceNum: number;
+  priceExact: boolean;
   priceLabel: string;
   site: string;
   raw: string;
   url: string | null;
   asin: string | null;
   retailerId: RetailerId | null;
+  image: string | null;
+  brand: string | null;
+  memory: string | null;
 };
 
 const SITE_PATTERNS: Array<{ test: RegExp; site: string }> = [
@@ -25,6 +38,7 @@ const SITE_PATTERNS: Array<{ test: RegExp; site: string }> = [
   { test: /alternate/i, site: "alternate.fr" },
   { test: /fnac\.com/i, site: "fnac.com" },
   { test: /apple\.com/i, site: "apple.com" },
+  { test: /nvidia\.com/i, site: "nvidia.com" },
 ];
 
 const SKU_RULES: Array<{ test: RegExp; id: string }> = [
@@ -49,19 +63,31 @@ const SKU_RULES: Array<{ test: RegExp; id: string }> = [
   { test: /b580|arc\s*b/, id: "arc-b580-12" },
 ];
 
+export function extractListingSignals(text: string): { vram: number | null; memory: string | null } {
+  const memory = text.match(/\b(GDDR7|GDDR6X|GDDR6|HBM3e|HBM3E|HBM3|HBM2e|HBM2E|LPDDR5X|LPDDR5)\b/i);
+  const vram = text.match(/\b(256|192|128|96|80|64|48|36|32|24|16|12|8)\s*(?:go|gb)\b/i);
+  let mem = memory?.[1] ? memory[1].toUpperCase() : null;
+  if (mem === "HBM3E") mem = "HBM3e";
+  if (mem === "HBM2E") mem = "HBM2e";
+  return {
+    memory: mem,
+    vram: vram ? parseInt(vram[1]!, 10) : null,
+  };
+}
+
 export function parsePrice(text: string): number | null {
-  const compact = text.replace(/\u00a0/g, " ");
+  const compact = text.replace(/\u00a0/g, " ").replace(/&nbsp;/gi, " ");
   const m = compact.match(/(\d{1,3}(?:[ .]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*€/);
   if (m?.[1]) {
     const euros = parseInt(m[1].replace(/[^\d]/g, ""), 10);
     const cents = m[2] ? parseInt(m[2].padEnd(2, "0"), 10) / 100 : 0;
-    const n = Math.round(euros + cents);
+    const n = euros + cents;
     return Number.isFinite(n) && n > 0 ? n : null;
   }
-  const usd = compact.match(/\$\s*(\d[\d,]*)/);
+  const usd = compact.match(/\$\s*(\d[\d,]*(?:\.\d{2})?)/);
   if (usd?.[1]) {
-    const n = Math.round(parseInt(usd[1].replace(/[^\d]/g, ""), 10) * 0.92);
-    return Number.isFinite(n) && n > 0 ? n : null;
+    const n = parseFloat(usd[1].replace(/,/g, "")) * 0.92;
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
   }
   return null;
 }
@@ -89,11 +115,7 @@ function matchSku(haystack: string, pool: Hardware[]): Hardware | null {
   return null;
 }
 
-export function parseProductText(
-  raw: string,
-  pool: Hardware[],
-  extras?: { title?: string | null; price?: number | null },
-): ParsedProduct {
+export function parseProductText(raw: string, pool: Hardware[], extras?: ListingExtras): ParsedProduct {
   const text = raw.trim();
   const url = extractUrl(text);
   const asin = extractAsin(text);
@@ -105,109 +127,93 @@ export function parseProductText(
       retailerId = null;
     }
   }
-  const hay = `${extras?.title ?? ""} ${text}`.toLowerCase();
+  const hay = `${extras?.title ?? ""} ${text} ${url ?? ""}`.toLowerCase();
   const matched = matchSku(hay, pool);
+  const signals = extractListingSignals(`${extras?.title ?? ""} ${text}`);
+  const listingVram = extras?.vram ?? signals.vram;
+  const memory = extras?.memory ?? signals.memory;
   const parsedPrice = extras?.price ?? parsePrice(`${extras?.title ?? ""} ${text}`);
-  const priceNum = (() => {
-    if (matched && parsedPrice && (parsedPrice > matched.priceNum * 8 || parsedPrice < matched.priceNum / 8)) {
-      return matched.priceNum;
-    }
-    return parsedPrice ?? matched?.priceNum ?? 0;
-  })();
-  const vramMatch = hay.match(/(\d+)\s*(go|gb)\b/);
-  const inferredVram = vramMatch ? parseInt(vramMatch[1], 10) : 0;
+  const priceExact = parsedPrice != null && parsedPrice > 0;
+  const priceNum = priceExact ? parsedPrice : 0;
   const site = detectSite(text, url);
   const displayName = extras?.title?.trim() || matched?.name;
+  const vram =
+    listingVram && listingVram >= 4 && listingVram <= 256
+      ? listingVram
+      : (matched?.vram ?? (listingVram && listingVram >= 4 ? listingVram : 16));
 
   if (matched) {
-    const vram =
-      inferredVram >= 8 && inferredVram <= 256 && inferredVram !== matched.vram
-        ? inferredVram
-        : matched.vram;
     return {
       name: displayName || matched.name,
       matched,
       vram,
       tflops: matched.tflops,
       bandwidth: matched.bandwidth,
-      priceNum: priceNum || matched.priceNum,
-      priceLabel: `${priceNum || matched.priceNum} €`,
+      priceNum,
+      priceExact,
+      priceLabel: priceExact ? `${priceNum} €` : "—",
       site,
       raw: text,
       url,
       asin,
       retailerId,
+      image: extras?.image ?? null,
+      brand: extras?.brand ?? null,
+      memory,
     };
   }
 
-  const vram = inferredVram >= 4 ? inferredVram : 16;
-  const firstLine = text.split(/\n/)[0]?.slice(0, 80).trim() || "Composant inconnu";
+  const inferredVram = listingVram && listingVram >= 4 ? listingVram : 16;
+  const firstLine = (extras?.title ?? text.split(/\n/)[0] ?? "").slice(0, 80).trim() || "Composant inconnu";
   return {
     name: displayName || firstLine,
     matched: null,
-    vram,
-    tflops: vram * 10,
-    bandwidth: vram * 25,
-    priceNum: priceNum || 500,
-    priceLabel: `${priceNum || 500} €`,
+    vram: inferredVram,
+    tflops: inferredVram * 10,
+    bandwidth: inferredVram * 25,
+    priceNum,
+    priceExact,
+    priceLabel: priceExact ? `${priceNum} €` : "—",
     site,
     raw: text,
     url,
     asin,
     retailerId,
+    image: extras?.image ?? null,
+    brand: extras?.brand ?? null,
+    memory,
   };
 }
 
 export function parsedToHardware(p: ParsedProduct): Hardware {
-  const id = `parsed-${Date.now()}`;
+  const stem = p.asin ?? p.matched?.id ?? p.site.replace(/\W+/g, "");
   return {
-    id,
-    name: p.matched ? p.matched.name : `[Fiche] ${p.name}`,
+    id: `listing-${stem}`,
+    name: p.name,
     vendor: p.matched?.vendor ?? "custom",
     vram: p.vram,
     tflops: p.tflops,
     bandwidth: p.bandwidth,
-    priceNum: p.priceNum,
+    priceNum: p.priceExact ? p.priceNum : (p.matched?.priceNum ?? 0),
     notes: `Importé depuis ${p.site}`,
-    custom: !p.matched,
+    custom: true,
   };
 }
 
-export const SAMPLE_LISTINGS: Array<{ title: string; site: string; price: string; body: string }> = [
+export const SAMPLE_LISTINGS: Array<{ title: string; site: string; body: string }> = [
   {
     title: "RTX 5090 32 Go",
     site: "ldlc.com",
-    price: "2 399 €",
-    body: "https://www.ldlc.com/fiche/PB0065090.html NVIDIA GeForce RTX 5090 32 Go GDDR7 — 2 399,00 €",
+    body: "https://www.ldlc.com/fiche/PB00663198.html",
+  },
+  {
+    title: "RTX 5090 NVIDIA",
+    site: "nvidia.com",
+    body: "https://www.nvidia.com/fr-fr/geforce/graphics-cards/50-series/rtx-5090/",
   },
   {
     title: "RTX 4090 24 Go",
-    site: "amazon.fr",
-    price: "1 899 €",
-    body: "https://www.amazon.fr/dp/B0CXXXX409 ASUS TUF Gaming GeForce RTX 4090 24GB — 1 899,00 €",
-  },
-  {
-    title: "RTX 4060 Ti 16 Go",
     site: "ldlc.com",
-    price: "489 €",
-    body: "https://www.ldlc.com/fiche/PB0054060.html Gigabyte GeForce RTX 4060 Ti GAMING OC 16 Go — 489,90 €",
-  },
-  {
-    title: "Mac Studio M4 Max",
-    site: "amazon.fr",
-    price: "2 399 €",
-    body: "https://www.amazon.fr/dp/B0M4MAX64A Apple Mac Studio (M4 Max, 64 Go, 1 To) — 2 399,00 €",
-  },
-  {
-    title: "Mac Studio M3 Ultra",
-    site: "ldlc.com",
-    price: "5 299 €",
-    body: "https://www.ldlc.com/fiche/PB00M3ULTRA.html Apple Mac Studio M3 Ultra 192 Go — 5 299,00 €",
-  },
-  {
-    title: "RX 7900 XTX 24 Go",
-    site: "topachat.com",
-    price: "899 €",
-    body: "https://www.topachat.com/pages/recherche.php?cat=off&mc=7900%20XTX Sapphire Pulse AMD Radeon RX 7900 XTX 24 Go — 899,00 €",
+    body: "https://www.ldlc.com/fiche/PB00594740.html",
   },
 ];
