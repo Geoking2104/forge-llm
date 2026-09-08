@@ -14,6 +14,7 @@ import { retailerByHost, RETAILERS } from "@/lib/retailers";
 import { listingBuyUrl } from "@/lib/affiliate";
 import { ShopMenu } from "./shop-links";
 import { ProductPhoto } from "./product-art";
+import { hardwareImage } from "@/lib/product-images";
 
 function hostRetailer(url: string | null) {
   if (!url) return null;
@@ -70,7 +71,12 @@ export function InspectPanel({
     <Card className="min-w-0 overflow-hidden">
       <CardContent className="p-0">
         <div className="grid min-w-0 gap-0 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-          <ProductPhoto src={parsed.image} alt={parsed.name} className="rounded-none" />
+          <ProductPhoto
+            src={parsed.image}
+            fallback={hardwareImage(hw)}
+            alt={parsed.name}
+            className="rounded-none lg:min-h-72"
+          />
           <div className="flex min-w-0 flex-col gap-5 p-6">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -204,7 +210,14 @@ function DealCard({
   const { t } = useTranslation();
   const speed = tokensPerSec(hardware, modelWeightGB);
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-secondary p-4">
+    <div className="flex gap-3 rounded-xl bg-secondary p-4">
+      <ProductPhoto
+        src={hardwareImage(hardware)}
+        alt={hardware.name}
+        className="size-20 shrink-0 rounded-xl p-0"
+        imgClassName="p-1.5"
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium leading-snug">{hardware.name}</p>
         <ShopMenu query={hardware.name} vendor={hardware.vendor} sku={hardware.id} />
@@ -217,6 +230,7 @@ function DealCard({
       <Button size="sm" variant="outline" onClick={onLoad}>
         {t("parser.useStation")}
       </Button>
+      </div>
     </div>
   );
 }

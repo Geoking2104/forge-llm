@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { displayImageSrc } from "@/lib/product-images";
 
 export function GpuArt({ className }: { className?: string }) {
   return (
@@ -29,23 +30,38 @@ export function GpuArt({ className }: { className?: string }) {
 
 export function ProductPhoto({
   src,
+  fallback,
   alt,
   className,
+  imgClassName,
 }: {
-  src: string | null;
+  src: string | null | undefined;
+  fallback?: string | null;
   alt: string;
   className?: string;
+  imgClassName?: string;
 }) {
+  const [useFallback, setUseFallback] = useState(false);
   const [failed, setFailed] = useState(false);
-  if (!src || failed) return <GpuArt className={className} />;
+  const raw = useFallback ? (fallback ?? null) : (src ?? fallback ?? null);
+  const display = displayImageSrc(raw);
+  if (!display || failed) return <GpuArt className={className} />;
   return (
-    <div className={cn("relative aspect-square overflow-hidden rounded-2xl bg-secondary", className)}>
+    <div
+      className={cn(
+        "relative aspect-square overflow-hidden rounded-2xl bg-secondary outline outline-1 -outline-offset-1 outline-black/10",
+        className,
+      )}
+    >
       <img
-        src={src}
+        src={display}
         alt={alt}
         referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
-        className="h-full w-full object-contain p-4"
+        onError={() => {
+          if (!useFallback && fallback && fallback !== src) setUseFallback(true);
+          else setFailed(true);
+        }}
+        className={cn("h-full w-full object-contain p-3", imgClassName)}
       />
     </div>
   );

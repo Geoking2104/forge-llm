@@ -10,6 +10,7 @@ export type Hardware = {
   priceNum: number;
   notes?: string;
   custom?: boolean;
+  image?: string | null;
 };
 
 export const VENDOR_LABEL: Record<Vendor, string> = {

@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { GpuArt, ModelArt } from "./product-art";
+import { ModelArt, ProductPhoto } from "./product-art";
+import { FEATURED_STATION_IMAGE } from "@/lib/product-images";
 import { useForgeStore } from "@/lib/store";
 
 export function EntryGate() {
@@ -21,7 +22,7 @@ export function EntryGate() {
       </div>
       <div className="grid gap-5 md:grid-cols-2">
         <PathCard
-          art={<GpuArt />}
+          art={<ProductPhoto src={FEATURED_STATION_IMAGE} alt="RTX 5090" className="rounded-xl" />}
           title={t("entry.stationTitle")}
           body={t("entry.stationBody")}
           cta={t("entry.stationCta")}

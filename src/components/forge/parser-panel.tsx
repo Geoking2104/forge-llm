@@ -130,8 +130,9 @@ export function ParserPanel() {
               key={s.title}
               type="button"
               onClick={() => void inspect(s.body)}
-              className="min-h-11 rounded-full border border-border bg-surface px-3 py-2 text-left text-xs text-muted transition-colors duration-150 hover:border-border-strong hover:text-fg"
+              className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface py-1.5 pl-1.5 pr-3 text-left text-xs text-muted transition-colors duration-150 hover:border-border-strong hover:text-fg"
             >
+              <img src={s.image} alt="" className="size-8 rounded-full object-cover" />
               {s.site} · {s.title}
             </button>
           ))}

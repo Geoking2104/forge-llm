@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { retailersForVendor, type Retailer } from "@/lib/retailers";
 import { isTagged, productOrSearchUrl, withAffiliate } from "@/lib/affiliate";
+import { RETAILER_MARK } from "@/lib/product-images";
 import { useAffiliateTags, useForgeStore } from "@/lib/store";
 
 type ShopTarget = {
@@ -79,6 +80,7 @@ export function ShopMenu({ query, vendor, sku, asin = null }: ShopTarget) {
               rel="noopener noreferrer sponsored nofollow"
               onClick={() => log({ retailer: r.id, sku, query: query.trim() })}
             >
+              <img src={RETAILER_MARK[r.id]} alt="" className="size-5 rounded-sm" />
               {r.name}
               {isTagged(tags, r) ? (
                 <span className="ml-auto text-xs text-muted">{t("parser.affiliate")}</span>
@@ -115,9 +117,12 @@ function ShopCard({
         onClick={onShop}
         className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-secondary px-3 py-2 text-sm transition-colors duration-150 hover:bg-accent"
       >
-        <span className="min-w-0 truncate">
-          <span className="font-medium">{retailer.name}</span>
-          {firstAdv ? <span className="ml-2 text-muted">{t(`parser.adv.${firstAdv}`)}</span> : null}
+        <span className="flex min-w-0 items-center gap-2 truncate">
+          <img src={RETAILER_MARK[retailer.id]} alt="" className="size-7 shrink-0 rounded-md" />
+          <span className="min-w-0 truncate">
+            <span className="font-medium">{retailer.name}</span>
+            {firstAdv ? <span className="ml-2 text-muted">{t(`parser.adv.${firstAdv}`)}</span> : null}
+          </span>
         </span>
         <span className="flex shrink-0 items-center gap-1 text-xs text-muted">
           {tagged ? t("parser.affiliate") : t("custom.searchBuy")}
@@ -129,7 +134,10 @@ function ShopCard({
   return (
     <div className="flex flex-col gap-3 rounded-xl bg-secondary p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-medium">{retailer.name}</p>
+        <div className="flex items-center gap-2">
+          <img src={RETAILER_MARK[retailer.id]} alt="" className="size-9 rounded-lg" />
+          <p className="font-medium">{retailer.name}</p>
+        </div>
         {tagged ? <Badge variant="signal">{t("parser.affiliate")}</Badge> : null}
       </div>
       <ul className="flex flex-col gap-1 text-sm text-muted">

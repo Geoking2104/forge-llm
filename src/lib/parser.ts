@@ -1,6 +1,7 @@
 import { DEFAULT_HARDWARE, type Hardware } from "./hardware";
 import { extractAsin, extractUrl } from "./affiliate";
 import { retailerByHost, type RetailerId } from "./retailers";
+import { catalogImageForId } from "./product-images";
 
 export type ListingExtras = {
   title?: string | null;
@@ -141,6 +142,7 @@ export function parseProductText(raw: string, pool: Hardware[], extras?: Listing
     listingVram && listingVram >= 4 && listingVram <= 256
       ? listingVram
       : (matched?.vram ?? (listingVram && listingVram >= 4 ? listingVram : 16));
+  const image = extras?.image || (matched ? catalogImageForId(matched.id) : null);
 
   if (matched) {
     return {
@@ -157,7 +159,7 @@ export function parseProductText(raw: string, pool: Hardware[], extras?: Listing
       url,
       asin,
       retailerId,
-      image: extras?.image ?? null,
+      image,
       brand: extras?.brand ?? null,
       memory,
     };
@@ -179,7 +181,7 @@ export function parseProductText(raw: string, pool: Hardware[], extras?: Listing
     url,
     asin,
     retailerId,
-    image: extras?.image ?? null,
+    image,
     brand: extras?.brand ?? null,
     memory,
   };
@@ -197,23 +199,27 @@ export function parsedToHardware(p: ParsedProduct): Hardware {
     priceNum: p.priceExact ? p.priceNum : (p.matched?.priceNum ?? 0),
     notes: `Importé depuis ${p.site}`,
     custom: true,
+    image: p.image,
   };
 }
 
-export const SAMPLE_LISTINGS: Array<{ title: string; site: string; body: string }> = [
+export const SAMPLE_LISTINGS: Array<{ title: string; site: string; body: string; image: string }> = [
   {
     title: "RTX 5090 32 Go",
     site: "ldlc.com",
     body: "https://www.ldlc.com/fiche/PB00663198.html",
+    image: "/hardware/rtx-5090-partner.jpg",
   },
   {
     title: "RTX 5090 NVIDIA",
     site: "nvidia.com",
     body: "https://www.nvidia.com/fr-fr/geforce/graphics-cards/50-series/rtx-5090/",
+    image: "/hardware/rtx-5090.jpg",
   },
   {
     title: "RTX 4090 24 Go",
     site: "ldlc.com",
     body: "https://www.ldlc.com/fiche/PB00594740.html",
+    image: "/hardware/rtx-4090.jpg",
   },
 ];

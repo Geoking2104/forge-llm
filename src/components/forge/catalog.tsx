@@ -8,6 +8,8 @@ import { tokensPerSec, vramFits, valueScore } from "@/lib/calc";
 import { formatEur, cn } from "@/lib/utils";
 import { useForgeStore } from "@/lib/store";
 import { ShopMenu } from "./shop-links";
+import { ProductPhoto } from "./product-art";
+import { hardwareImage } from "@/lib/product-images";
 
 export function Catalog({
   modelWeightGB,
@@ -69,8 +71,14 @@ export function Catalog({
         <div className="flex flex-col divide-y divide-border md:hidden">
           {ranked.map(({ h, fits, speed }) => (
             <div key={h.id} className="flex flex-col gap-3 px-6 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
+              <div className="flex items-start gap-3">
+                <ProductPhoto
+                  src={hardwareImage(h)}
+                  alt={h.name}
+                  className="size-14 shrink-0 rounded-xl"
+                  imgClassName="p-1"
+                />
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">{h.name}</p>
                   <p className="text-xs text-muted">{VENDOR_LABEL[h.vendor]}</p>
                 </div>
@@ -109,11 +117,21 @@ function CatalogRow({
   return (
     <tr className={cn("border-b border-border last:border-0", !fits && "opacity-60")}>
       <td className="px-6 py-3">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{h.name}</span>
-          <FitBadge fits={fits} />
+        <div className="flex items-center gap-3">
+          <ProductPhoto
+            src={hardwareImage(h)}
+            alt={h.name}
+            className="size-12 shrink-0 rounded-xl"
+            imgClassName="p-1"
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{h.name}</span>
+              <FitBadge fits={fits} />
+            </div>
+            <p className="text-xs text-muted">{VENDOR_LABEL[h.vendor]}</p>
+          </div>
         </div>
-        <p className="text-xs text-muted">{VENDOR_LABEL[h.vendor]}</p>
       </td>
       <td className="px-3 py-3 font-mono tabular-nums">{h.vram}</td>
       <td className="px-3 py-3 font-mono tabular-nums">{h.tflops}</td>

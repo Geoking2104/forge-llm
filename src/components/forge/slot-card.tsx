@@ -8,6 +8,8 @@ import type { SlotId } from "@/lib/calc";
 import { tokensPerSec, vramFits, isMemoryBound } from "@/lib/calc";
 import { formatEur, formatNumber, cn } from "@/lib/utils";
 import { useForgeStore } from "@/lib/store";
+import { ProductPhoto } from "./product-art";
+import { hardwareImage } from "@/lib/product-images";
 
 export function SlotCard({
   id,
@@ -62,6 +64,7 @@ export function SlotCard({
           ))}
         </SelectContent>
       </Select>
+      <ProductPhoto src={hardwareImage(hardware)} alt={hardware.name} className="rounded-xl" imgClassName="p-2" />
       <div>
         <p className="text-xs text-muted">{t("slot.throughput")}</p>
         <p className={cn("font-display text-3xl font-semibold tabular-nums", !fits && "text-muted")}>

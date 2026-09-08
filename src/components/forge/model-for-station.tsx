@@ -14,6 +14,8 @@ import {
 import { findHardware, VENDOR_LABEL } from "@/lib/hardware";
 import { useForgeStore } from "@/lib/store";
 import { cn, formatEur, formatNumber, formatDuration } from "@/lib/utils";
+import { ProductPhoto } from "./product-art";
+import { hardwareImage } from "@/lib/product-images";
 
 const SNAPPY = 15;
 const GEN = 512;
@@ -68,10 +70,16 @@ export function ModelForStation() {
                   type="button"
                   onClick={() => setFocusHardware(h.id)}
                   className={cn(
-                    "flex min-h-24 flex-col items-start gap-1 rounded-xl bg-secondary p-4 text-left transition-[transform,box-shadow] duration-150 ease-[var(--ease-smooth-out)] hover:-translate-y-0.5",
+                    "flex min-h-24 flex-col items-start gap-2 rounded-xl bg-secondary p-3 text-left transition-[transform,box-shadow] duration-150 ease-[var(--ease-smooth-out)] hover:-translate-y-0.5",
                     selected && "bg-surface shadow-[var(--shadow-border-hover)] ring-2 ring-primary",
                   )}
                 >
+                  <ProductPhoto
+                    src={hardwareImage(h)}
+                    alt={h.name}
+                    className="aspect-[4/3] w-full rounded-lg"
+                    imgClassName="p-1.5"
+                  />
                   <span className="text-xs text-muted">{VENDOR_LABEL[h.vendor]}</span>
                   <span className="line-clamp-2 text-sm font-medium leading-snug">{h.name}</span>
                   <span className="mt-auto font-mono text-xs tabular-nums text-muted">
