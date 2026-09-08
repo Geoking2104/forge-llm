@@ -4,7 +4,15 @@ export type AffiliateTags = {
   amazon: string;
 };
 
-export const EMPTY_TAGS: AffiliateTags = { amazon: "" };
+/** SiteStripe Amazon Associates (FR) — AInonymous. */
+export const AMAZON_AFFILIATE = {
+  tag: "ainonymous09-20",
+  linkCode: "ll2",
+  linkId: "27adefd75a79bd098fac55f61b7e1ba1",
+  ref: "as_li_ss_tl",
+} as const;
+
+export const EMPTY_TAGS: AffiliateTags = { amazon: AMAZON_AFFILIATE.tag };
 
 export type AffiliateEvent = {
   at: number;
@@ -13,20 +21,43 @@ export type AffiliateEvent = {
   query: string;
 };
 
-export function isTagged(tags: AffiliateTags, retailer: Retailer): boolean {
-  return retailer.id === "amazon" && Boolean(tags.amazon.trim());
+export function amazonTagOrDefault(tag?: string | null): string {
+  const t = tag?.trim();
+  return t || AMAZON_AFFILIATE.tag;
 }
 
-export function withAffiliate(dest: string, retailer: Retailer, tags: AffiliateTags): string {
+export function isAmazonHost(hostname: string): boolean {
+  const host = hostname.replace(/^www\./, "").toLowerCase();
+  return (
+    host === "amazon.fr" ||
+    host.endsWith(".amazon.fr") ||
+    host === "amazon.com" ||
+    host.endsWith(".amazon.com") ||
+    host === "amzn.eu" ||
+    host === "amzn.to"
+  );
+}
+
+export function isTagged(tags: AffiliateTags, retailer: Retailer): boolean {
+  return retailer.id === "amazon" && Boolean(amazonTagOrDefault(tags.amazon));
+}
+
+export function withAffiliate(
+  dest: string,
+  retailer: Retailer | null,
+  tags: AffiliateTags = EMPTY_TAGS,
+): string {
   try {
     const u = new URL(dest);
-    if (retailer.id === "amazon" && tags.amazon.trim()) {
-      u.searchParams.set("tag", tags.amazon.trim());
-      u.searchParams.set("linkCode", "ll1");
-    } else {
-      u.searchParams.set("utm_source", "forge");
-      u.searchParams.set("utm_medium", "referral");
+    if (retailer?.id === "amazon" || isAmazonHost(u.hostname)) {
+      u.searchParams.set("tag", amazonTagOrDefault(tags.amazon));
+      u.searchParams.set("linkCode", AMAZON_AFFILIATE.linkCode);
+      u.searchParams.set("linkId", AMAZON_AFFILIATE.linkId);
+      u.searchParams.set("ref_", AMAZON_AFFILIATE.ref);
+      return u.toString();
     }
+    u.searchParams.set("utm_source", "forge");
+    u.searchParams.set("utm_medium", "referral");
     return u.toString();
   } catch {
     return dest;
@@ -65,8 +96,7 @@ export function listingBuyUrl(
   if (dest) {
     try {
       const u = new URL(dest);
-      if (retailer) return withAffiliate(u.toString(), retailer, tags);
-      return u.toString();
+      return withAffiliate(u.toString(), retailer, tags);
     } catch {
       /* fall through */
     }

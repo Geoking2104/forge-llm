@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SAMPLE_LISTINGS } from "@/lib/parser";
-import { extractUrl } from "@/lib/affiliate";
+import { AMAZON_AFFILIATE, extractUrl } from "@/lib/affiliate";
 import { inspectListingUrl } from "@/lib/inspect-listing";
 import { useForgeStore } from "@/lib/store";
 
@@ -150,14 +150,14 @@ export function ParserPanel() {
               id="amztag"
               value={tagDraft}
               onChange={(e) => setTagDraft(e.target.value)}
-              placeholder="forge21-21"
+              placeholder={AMAZON_AFFILIATE.tag}
               autoComplete="off"
             />
           </div>
           <p className="text-xs leading-relaxed text-muted">{t("parser.disclosure")}</p>
           <Button
             onClick={() => {
-              setAmazonTag(tagDraft.trim());
+              setAmazonTag(tagDraft.trim() || AMAZON_AFFILIATE.tag);
               setSettings(false);
               toast.success(t("parser.tagSave"));
             }}

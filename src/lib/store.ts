@@ -4,7 +4,7 @@ import { DEFAULT_HARDWARE, findHardware, type Hardware } from "./hardware";
 import { DEFAULT_MODEL, MODEL_PRESETS, type QuantKey } from "./models";
 import type { SlotId } from "./calc";
 import type { Locale } from "@/i18n";
-import { EMPTY_TAGS, type AffiliateEvent, type AffiliateTags } from "./affiliate";
+import { AMAZON_AFFILIATE, type AffiliateEvent, type AffiliateTags } from "./affiliate";
 
 export type EntryMode = "choose" | "station" | "model";
 
@@ -77,7 +77,7 @@ export const useForgeStore = create<ForgeState>()(
       quantization: DEFAULT_MODEL.defaultQuant,
       context: DEFAULT_MODEL.context,
       presetId: DEFAULT_MODEL.id,
-      amazonTag: "",
+      amazonTag: AMAZON_AFFILIATE.tag,
       affiliateLog: [],
       listingRaw: "",
       listingTitle: null,
@@ -186,6 +186,7 @@ export const useForgeStore = create<ForgeState>()(
           ...current,
           ...p,
           pool: [...DEFAULT_HARDWARE, ...customs],
+          amazonTag: p.amazonTag?.trim() || AMAZON_AFFILIATE.tag,
         };
       },
     },
@@ -203,5 +204,5 @@ export function useSlot(slot: SlotId): Hardware {
 
 export function useAffiliateTags(): AffiliateTags {
   const amazon = useForgeStore((s) => s.amazonTag);
-  return amazon ? { amazon } : EMPTY_TAGS;
+  return { amazon: amazon?.trim() || AMAZON_AFFILIATE.tag };
 }
