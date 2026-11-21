@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Hardware } from "@/lib/hardware";
 import { VENDOR_LABEL } from "@/lib/hardware";
 import type { SlotId } from "@/lib/calc";
-import { tokensPerSec, vramFits, isMemoryBound } from "@/lib/calc";
+import { tokensPerSec, vramFits, decodeLimits } from "@/lib/calc";
 import { formatEur, formatNumber, cn } from "@/lib/utils";
 import { useForgeStore } from "@/lib/store";
 import { ProductPhoto } from "./product-art";
@@ -14,26 +14,25 @@ import { hardwareImage } from "@/lib/product-images";
 export function SlotCard({
   id,
   hardware,
-  modelWeightGB,
+  work,
   requiredVram,
-  paramsB,
   isWinner,
   isValue,
 }: {
   id: SlotId;
   hardware: Hardware;
-  modelWeightGB: number;
+  work: import("@/lib/calc").Workload;
   requiredVram: number;
-  paramsB: number;
   isWinner: boolean;
   isValue: boolean;
 }) {
   const { t } = useTranslation();
   const pool = useForgeStore((s) => s.pool);
   const setSlot = useForgeStore((s) => s.setSlot);
-  const speed = tokensPerSec(hardware, modelWeightGB);
+  const speed = tokensPerSec(hardware, work);
   const fits = vramFits(hardware, requiredVram);
-  const memBound = isMemoryBound(hardware, paramsB, modelWeightGB);
+  const limits = decodeLimits(hardware, work);
+  const memBound = limits.memory <= limits.compute;
   const fill = Math.min(100, (requiredVram / Math.max(hardware.vram, 0.1)) * 100);
   const vendor =
     hardware.vendor === "custom" ? t("vendor.custom") : VENDOR_LABEL[hardware.vendor];
@@ -87,7 +86,7 @@ export function SlotCard({
         </div>
         <p className="mt-1 text-xs">
           {fits ? (
-            <span className="text-ok">{memBound ? t("slot.memBound") : t("slot.computeBound")}</span>
+            <span className="text-ok">{!hardware.tflops ? t("model.memOnly") : memBound ? t("slot.memBound") : t("slot.computeBound")}</span>
           ) : (
             <span className="text-danger">{t("slot.noVram")}</span>
           )}
@@ -95,8 +94,16 @@ export function SlotCard({
       </div>
       <dl className="grid grid-cols-2 gap-2 text-xs">
         <div>
+          <dt className="text-subtle">{t("model.latency")}</dt>
+          <dd>{fits && speed > 0 ? formatNumber(1000 / speed, 1) + " ms" : "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-subtle">{t("model.aggregate")}</dt>
+          <dd>{fits ? formatNumber(speed * work.batch, 1) + " tok/s" : "—"}</dd>
+        </div>
+        <div>
           <dt className="text-subtle">{t("slot.tensors")}</dt>
-          <dd className="font-mono tabular-nums">{hardware.tflops} TF</dd>
+          <dd className="font-mono tabular-nums">{hardware.tflops || "—"} TF</dd>
         </div>
         <div>
           <dt className="text-subtle">{t("slot.bandwidth")}</dt>

@@ -251,9 +251,19 @@ export const DEFAULT_HARDWARE: Hardware[] = [
     priceNum: 249,
     notes: "SYCL / IPEX-LLM expérimental",
   },
+  { id: "arc-pro-b65-32", name: "Intel Arc Pro B65 32 Go", vendor: "intel", vram: 32, bandwidth: 608, tflops: 0, priceNum: 0 },
+  { id: "arc-pro-b70-32", name: "Intel Arc Pro B70 32 Go", vendor: "intel", vram: 32, bandwidth: 608, tflops: 0, priceNum: 0 },
+  { id: "r9700-32", name: "Radeon AI PRO R9700 32 Go", vendor: "amd", vram: 32, bandwidth: 640, tflops: 191, priceNum: 0 },
+  { id: "rtx-pro-6000-blackwell-96", name: "RTX PRO 6000 Blackwell Workstation 96 Go", vendor: "nvidia", vram: 96, bandwidth: 1792, tflops: 0, priceNum: 0 },
+  { id: "air-m5-32", name: "MacBook Air M5 32 Go", vendor: "apple", vram: 32, bandwidth: 153, tflops: 0, priceNum: 0 },
+  { id: "mbp-m5pro-48", name: "MacBook Pro M5 Pro 48 Go", vendor: "apple", vram: 48, bandwidth: 307, tflops: 0, priceNum: 0 },
+  { id: "mbp-m5max-128", name: "MacBook Pro M5 Max (40 GPU) 128 Go", vendor: "apple", vram: 128, bandwidth: 614, tflops: 0, priceNum: 0 },
+  { id: "mbp-m6-16", name: "MacBook Pro M6 16 Go", vendor: "apple", vram: 16, bandwidth: 153, tflops: 0, priceNum: 0 },
+  { id: "mbp-m6-32", name: "MacBook Pro M6 32 Go", vendor: "apple", vram: 32, bandwidth: 170, tflops: 0, priceNum: 0 },
 ];
 
 export function hardwarePriceLabel(hw: Hardware): string {
+  if (!hw.priceNum) return "—";
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",

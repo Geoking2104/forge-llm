@@ -6,10 +6,10 @@ import { MODEL_PRESETS } from "@/lib/models";
 import {
   bytesForQuant,
   generationSeconds,
-  requiredVramGB,
+  decodeWorkload,
   tokensPerSec,
   vramFits,
-  weightGB,
+
 } from "@/lib/calc";
 import { findHardware, VENDOR_LABEL } from "@/lib/hardware";
 import { useForgeStore } from "@/lib/store";
@@ -32,18 +32,20 @@ export function ModelForStation() {
   const hw = findHardware(pool, focusHardwareId) ?? pool[0];
   const bytes = bytesForQuant(quantization);
 
+  const { batch, kvBytes, utilization } = useForgeStore();
   const ranked = useMemo(() => {
     if (!hw) return [];
     return MODEL_PRESETS.map((m) => {
-      const required = requiredVramGB(m.paramsB, bytes, context);
-      const speed = tokensPerSec(hw, weightGB(m.paramsB, bytes));
+      const work = decodeWorkload(m.paramsB, bytes, context, m, batch, kvBytes, utilization);
+      const required = work.required;
+      const speed = tokensPerSec(hw, work);
       const fits = vramFits(hw, required);
       return { m, required, speed, fits };
     }).sort((a, b) => {
       if (a.fits !== b.fits) return a.fits ? -1 : 1;
       return b.m.paramsB - a.m.paramsB;
     });
-  }, [hw, bytes, context]);
+  }, [hw, bytes, context, batch, kvBytes, utilization]);
 
   const largest = ranked.find((r) => r.fits) ?? null;
   const snappy =
@@ -92,7 +94,7 @@ export function ModelForStation() {
           <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="VRAM" value={`${hw.vram} Go`} />
             <Stat label="Go/s" value={String(hw.bandwidth)} />
-            <Stat label="TFLOPS" value={String(hw.tflops)} />
+            <Stat label="TFLOPS" value={String(hw.tflops || "—")} />
             <Stat label={t("slot.price")} value={formatEur(hw.priceNum)} />
           </dl>
         </CardContent>
@@ -121,7 +123,7 @@ export function ModelForStation() {
             <button
               key={m.id}
               type="button"
-              onClick={() => applyPreset(m.id)}
+              onClick={() => applyPreset(m.id, true)}
               className={cn(
                 "flex flex-col gap-3 rounded-xl bg-secondary p-5 text-left transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-[var(--shadow-float)]",
                 !fits && "opacity-60",

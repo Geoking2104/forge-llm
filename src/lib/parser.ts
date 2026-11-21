@@ -43,6 +43,15 @@ const SITE_PATTERNS: Array<{ test: RegExp; site: string }> = [
 ];
 
 const SKU_RULES: Array<{ test: RegExp; id: string }> = [
+  { test: /rtx\s*pro\s*6000.*blackwell.*workstation|rtx\s*pro\s*6000.*workstation.*blackwell/, id: "rtx-pro-6000-blackwell-96" },
+  { test: /\br9700\b/, id: "r9700-32" },
+  { test: /macbook\s*air.*\bm5\b.*32\s*(go|gb)/, id: "air-m5-32" },
+  { test: /m5\s*pro.*48\s*(go|gb)/, id: "mbp-m5pro-48" },
+  { test: /m5\s*max.*128\s*(go|gb)/, id: "mbp-m5max-128" },
+  { test: /macbook\s*pro.*\bm6\b.*16\s*(go|gb)/, id: "mbp-m6-16" },
+  { test: /macbook\s*pro.*\bm6\b.*32\s*(go|gb)/, id: "mbp-m6-32" },
+  { test: /arc\s*pro\s*b65\b/, id: "arc-pro-b65-32" },
+  { test: /arc\s*pro\s*b70\b/, id: "arc-pro-b70-32" },
   { test: /5090/, id: "rtx-5090-32" },
   { test: /5080/, id: "rtx-5080-16" },
   { test: /5070\s*ti/, id: "rtx-5070-ti-16" },

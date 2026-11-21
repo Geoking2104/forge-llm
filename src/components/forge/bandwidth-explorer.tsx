@@ -16,8 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import {
-  arithmeticIntensity,
-  computeCeilingToks,
+  decodeLimits,
+  type Workload,
+
   generationSeconds,
   memoryCeilingToks,
   ridgePoint,
@@ -31,14 +32,10 @@ const BW_MAX = 3600;
 
 export function BandwidthExplorer({
   slots,
-  modelWeightGB,
-  paramsB,
-  bytesPerParam,
+  work,
 }: {
   slots: SlotAnalysis[];
-  modelWeightGB: number;
-  paramsB: number;
-  bytesPerParam: number;
+  work: Workload;
 }) {
   const { t, i18n } = useTranslation();
   const slotA = slots[0];
@@ -48,17 +45,18 @@ export function BandwidthExplorer({
     if (slotA?.data.bandwidth) setWhatIf(slotA.data.bandwidth);
   }, [slotA?.data.id, slotA?.data.bandwidth]);
 
-  const intensity = arithmeticIntensity(bytesPerParam);
-  const whatIfToks = memoryCeilingToks(whatIf, modelWeightGB, 1);
+  const intensity = work.gflops / work.traffic;
+  const simulatedSpeed = (bw: number) => slotA?.fits ? decodeLimits({ ...slotA.data, bandwidth: bw }, work).speed : 0;
+  const whatIfToks = simulatedSpeed(whatIf);
   const whatIfSeconds = generationSeconds(whatIfToks, GEN_TOKENS);
 
   const curve = useMemo(() => {
     const rows: Array<{ bw: number; mem: number }> = [];
     for (let bw = 0; bw <= BW_MAX; bw += 60) {
-      rows.push({ bw, mem: Math.round(memoryCeilingToks(bw, modelWeightGB, 1)) });
+      rows.push({ bw, mem: Math.round(memoryCeilingToks(bw, work.traffic, 1)) });
     }
     return rows;
-  }, [modelWeightGB]);
+  }, [work.traffic]);
 
   const markers = slots
     .filter((s) => s.fits)
@@ -70,7 +68,7 @@ export function BandwidthExplorer({
     }));
 
   const maxCompute = Math.max(...slots.map((s) => s.computeToks), 1);
-  const roofY = Math.min(maxCompute, memoryCeilingToks(BW_MAX, modelWeightGB, 1) * 1.15);
+  const roofY = Math.min(maxCompute, memoryCeilingToks(BW_MAX, work.traffic, 1) * 1.15);
   void i18n.language;
 
   return (
@@ -80,7 +78,7 @@ export function BandwidthExplorer({
         <CardDescription>{t("bw.desc", { intensity: formatNumber(intensity, 1) })}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        <Insight slots={slots} paramsB={paramsB} modelWeightGB={modelWeightGB} />
+        <Insight slots={slots} />
 
         <div className="h-64 min-w-0 overflow-hidden">
           <ResponsiveContainer width="100%" height="100%">
@@ -168,13 +166,13 @@ export function BandwidthExplorer({
             ))}
           </div>
           <div className="grid grid-cols-2 gap-3 rounded-xl bg-secondary p-4 sm:grid-cols-4">
-            <Stat label={t("bw.simulated")} value={`${Math.round(whatIfToks)} tok/s`} />
+            <Stat label={t("bw.simulated")} value={slotA?.fits ? `${whatIfToks} tok/s` : "—"} />
             <Stat label={t("bw.tokens", { count: GEN_TOKENS })} value={formatDuration(whatIfSeconds)} />
             <Stat
               label={t("bw.gain")}
-              value={slotA && slotA.speed ? `×${formatNumber(whatIfToks / slotA.speed, 2)}` : "—"}
+              value={slotA?.fits && slotA.speed ? `×${formatNumber(whatIfToks / slotA.speed, 2)}` : "—"}
             />
-            <Stat label={t("bw.perGb")} value={`+${formatNumber(1 / Math.max(modelWeightGB, 0.01), 1)}`} />
+            <Stat label={t("bw.perGb")} value={slotA?.fits ? `+${formatNumber(simulatedSpeed(whatIf + 100) / 100 - whatIfToks / 100, 2)}` : "—"} />
           </div>
         </div>
 
@@ -212,6 +210,7 @@ export function BandwidthExplorer({
 
 function boundLabel(s: SlotAnalysis, t: (k: string) => string) {
   if (!s.fits) return t("slot.noVram");
+  if (!s.data.tflops) return t("model.memOnly");
   return s.memoryBound ? t("bw.mem") : t("bw.compute");
 }
 
@@ -225,9 +224,9 @@ function BoundRow({ s }: { s: SlotAnalysis }) {
         <span className="ml-2 text-xs font-normal text-muted">{s.data.name}</span>
       </td>
       <td className="py-2.5 pr-3 font-mono tabular-nums">{s.data.bandwidth}</td>
-      <td className="py-2.5 pr-3 font-mono tabular-nums">{s.fits ? s.speed : "—"}</td>
+      <td className="py-2.5 pr-3 font-mono tabular-nums">{s.fits ? Math.round(s.memoryToks) : "—"}</td>
       <td className="py-2.5 pr-3 font-mono tabular-nums">
-        {Math.round(s.computeToks).toLocaleString(localeTag())}
+        {s.data.tflops ? Math.round(s.computeToks).toLocaleString(localeTag()) : "—"}
       </td>
       <td className="py-2.5 pr-3">
         <Badge variant={!s.fits ? "danger" : s.memoryBound ? "signal" : "warn"}>{boundLabel(s, t)}</Badge>
@@ -235,7 +234,7 @@ function BoundRow({ s }: { s: SlotAnalysis }) {
       <td className="py-2.5 pr-3 font-mono tabular-nums">
         {s.fits ? formatDuration(generationSeconds(s.speed, GEN_TOKENS)) : "—"}
       </td>
-      <td className="py-2.5 font-mono tabular-nums text-muted">{formatNumber(ridge, 0)} FLOP/o</td>
+      <td className="py-2.5 font-mono tabular-nums text-muted">{ridge ? formatNumber(ridge, 0) : "—"} FLOP/o</td>
     </tr>
   );
 }
@@ -253,9 +252,9 @@ function MobileBound({ s }: { s: SlotAnalysis }) {
       </div>
       <p className="font-mono text-xs tabular-nums text-muted">
         {s.data.bandwidth} Go/s · {s.fits ? `${s.speed} tok/s` : "—"} · {t("bw.compute")}{" "}
-        {Math.round(s.computeToks).toLocaleString(localeTag())} ·{" "}
+        {s.data.tflops ? Math.round(s.computeToks).toLocaleString(localeTag()) : "—"} ·{" "}
         {s.fits ? formatDuration(generationSeconds(s.speed, GEN_TOKENS)) : "—"} · {t("bw.ridge")}{" "}
-        {formatNumber(ridge, 0)} FLOP/o
+        {ridge ? formatNumber(ridge, 0) : "—"} FLOP/o
       </p>
     </div>
   );
@@ -263,21 +262,18 @@ function MobileBound({ s }: { s: SlotAnalysis }) {
 
 function Insight({
   slots,
-  paramsB,
-  modelWeightGB,
 }: {
   slots: SlotAnalysis[];
-  paramsB: number;
-  modelWeightGB: number;
 }) {
   const { t } = useTranslation();
   const fitted = slots.filter((s) => s.fits);
   const sample = fitted[0] ?? slots[0];
   if (!sample) return null;
   const ratio = sample.intensityHeadroom;
-  const compute = computeCeilingToks(sample.data.tflops, paramsB);
-  const mem = memoryCeilingToks(sample.data.bandwidth, modelWeightGB, 1);
+  const compute = sample.computeToks;
+  const mem = sample.memoryToks;
 
+  if (!sample.data.tflops && sample.fits) return <p>{t("model.memOnly")}</p>;
   if (!sample.fits) {
     return (
       <p className="rounded-xl bg-secondary px-4 py-3 text-sm leading-relaxed text-muted">
