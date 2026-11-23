@@ -63,3 +63,58 @@ test("snapshot uses actual sample size, separate timestamps and rejects incomple
   assert.equal(sample.priceTime, 1200);
   assert.throws(() => networkSnapshot([], {}));
 });
+
+import {
+  matchStation,
+  readMeasurements,
+  explicitSpecs,
+  workstation,
+  aiReturn,
+} from "../src/lib/mining/workstation.ts";
+import { DEFAULT_HARDWARE } from "../src/lib/hardware.ts";
+import { decodeWorkload } from "../src/lib/calc.ts";
+import { scenarioSchema, initialScenario } from "../src/lib/mining/calculator.ts";
+
+test("recognition distinguishes unified-memory bins, dual GPUs and incomplete variants", () => {
+  assert.equal(matchStation("PC RTX 4090 / 64 Go RAM", DEFAULT_HARDWARE)?.id, "rtx-4090-24");
+  assert.equal(matchStation("Dual RTX 4090", DEFAULT_HARDWARE)?.id, "dual-4090-48");
+  assert.equal(matchStation("MacBook Pro M6 32GB", DEFAULT_HARDWARE)?.bandwidth, 170);
+  assert.equal(matchStation("MacBook Pro M6", DEFAULT_HARDWARE), undefined);
+  assert.equal(matchStation("MacBook Air M5 16 GB", DEFAULT_HARDWARE), undefined);
+  assert.equal(matchStation("RTX 4090 Laptop", DEFAULT_HARDWARE), undefined);
+});
+test("manual reconstruction separates VRAM from RAM and parses qualified benchmarks", () => {
+  assert.deepEqual(explicitSpecs("64 Go RAM, VRAM 24 Go, 1008 GB/s, 80 TFLOPS"), {
+    vram: 24,
+    bandwidth: 1008,
+    tflops: 80,
+  });
+  assert.deepEqual(readMeasurements("SHA-256d 750 MH/s · minage 350 W · IA 470 W"), {
+    th: 0.00075,
+    watts: 350,
+    aiWatts: 470,
+  });
+  assert.deepEqual(readMeasurements("850 W PSU, 200 MH/s"), { th: 0, watts: 0, aiWatts: 0 });
+});
+test("same workstation economics respect billable demand, actual hours and missing inputs", () => {
+  const hw = matchStation("RTX 4090", DEFAULT_HARDWARE);
+  const r = {
+    ...rigPreset(0),
+    station: { ...workstation(hw), aiRate: 2, demand: 50, aiWatts: 400 },
+    quantity: 2,
+    watts: 0,
+    th: 0,
+    hosting: 1,
+  };
+  const work = decodeWorkload(8, 0.5625, 8192);
+  const a = aiReturn(r, s, work);
+  near(a.tokens, a.speed * 3600 * 24);
+  near(a.margin, (a.tokens * 2) / 1e6 - 0.4 * 2 * 24 * s.rate - 2);
+  assert.equal(miningResult(r, s, n), null);
+  assert.equal(aiReturn({ ...r, station: { ...r.station, aiWatts: 0 } }, s, work).margin, null);
+  assert.equal(aiReturn(r, s, decodeWorkload(150, 2, 8192)), null);
+  assert.equal(
+    scenarioSchema.parse({ ...initialScenario, rigs: [r, rig, rig] }).rigs[0].station.id,
+    hw.id,
+  );
+});

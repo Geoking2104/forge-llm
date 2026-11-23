@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { workstationSchema } from "./workstation.ts";
+
 const amount = z.number().nonnegative().max(1e15);
 const percent = z.number().min(0).max(100);
 export const networkSchema = z.object({
@@ -30,6 +32,7 @@ export const presets = [
   { name: "Antminer S19j Pro", th: 100, watts: 2950, source: "4403541716761" },
 ];
 const rigSchema = z.object({
+  station: workstationSchema.optional(),
   preset: z.number().int().min(0).max(2),
   name: z.string().max(100),
   th: amount,
@@ -102,6 +105,7 @@ export const initialScenario: Scenario = {
 export function miningResult(r: Rig, s: Settings, n: Network) {
   // Schedule is the actual number of hours run in each tariff band per day.
   const hours = s.peakHours + s.offHours;
+  if (r.station && (r.th <= 0 || r.watts <= 0)) return null;
   if (hours > 24) return null;
   const online = s.uptime / 100;
   const kw = ((r.watts + r.cooling) * r.quantity) / 1000;

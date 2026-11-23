@@ -4,6 +4,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ForgeMark } from "@/components/forge/logo";
 import { LanguageSwitch } from "@/components/forge/language-switch";
+import { StationImport } from "@/components/forge/station-import";
+import { aiReturn } from "@/lib/mining/workstation";
+import { decodeWorkload, bytesForQuant } from "@/lib/calc";
+import { MODEL_PRESETS } from "@/lib/models";
 import { useForgeStore } from "@/lib/store";
 import {
   initialScenario,
@@ -86,7 +90,12 @@ function Select({
   return (
     <label className="text-sm">
       {label}
-      <select aria-label={label} className={input} value={value} onChange={(e) => change(e.target.value)}>
+      <select
+        aria-label={label}
+        className={input}
+        value={value}
+        onChange={(e) => change(e.target.value)}
+      >
         {children}
       </select>
     </label>
@@ -150,6 +159,17 @@ function Mining() {
       ...old,
       rigs: old.rigs.map((r, i) => (i === index ? { ...r, ...patch } : r)),
     }));
+  const forge = useForgeStore();
+  const model = MODEL_PRESETS.find((m) => m.id === forge.presetId);
+  const work = decodeWorkload(
+    forge.modelParamSize,
+    bytesForQuant(forge.quantization),
+    forge.context,
+    model,
+    forge.batch,
+    forge.kvBytes,
+    forge.utilization,
+  );
   const results = rigs.map((r) => miningResult(r, s, n));
   return (
     <div className="min-h-dvh bg-bg text-fg">
@@ -167,10 +187,11 @@ function Mining() {
         </h1>
         <p className="text-muted">
           {tr(
-            "Comparez trois mineurs en pool selon votre tarif électrique et vos heures de fonctionnement.",
-            "Compare three pool miners at your electricity rates and operating hours.",
+            "Comparez la marge IA et la marge de minage d’un PC, d’un Mac ou d’un GPU, ou sélectionnez un ASIC.",
+            "Compare AI and mining margins for a PC, Mac or GPU, or select an ASIC.",
           )}
         </p>
+        <StationImport tr={tr} apply={changes} />
         <section className={panel}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-xl font-semibold">
@@ -311,6 +332,12 @@ function Mining() {
           {rigs.map((r, i) => {
             const patch = (p: Partial<Rig>) => changes(i, p);
             const a = results[i];
+            const station = r.station;
+            const ai = station ? aiReturn(r, s, work) : null;
+            const updateStation = (values: Partial<NonNullable<Rig["station"]>>) => {
+              if (station) patch({ station: { ...station, ...values } });
+            };
+
             return (
               <section key={i} className={panel}>
                 <p className="text-sm text-muted">
@@ -319,10 +346,11 @@ function Mining() {
                 <h2 className="mb-3 text-2xl font-semibold">{r.name}</h2>
                 <Select
                   label={tr("Profil constructeur", "Manufacturer profile")}
-                  value={String(r.preset)}
+                  value={station ? "station" : String(r.preset)}
                   change={(v) => {
                     const profile = rigPreset(+v);
                     patch({
+                      ...(station ? { ...profile, station: undefined } : {}),
                       preset: +v,
                       name: profile.name,
                       th: profile.th,
@@ -332,12 +360,131 @@ function Mining() {
                     });
                   }}
                 >
+                  {station && <option value="station">{station.name} · Forge LLM</option>}
                   {presets.map((p, j) => (
                     <option key={p.name} value={j}>
                       {p.name}
                     </option>
                   ))}
                 </Select>
+                {station && (
+                  <div className="my-4 grid gap-3 rounded-xl bg-secondary p-4">
+                    <h3 className="font-semibold">
+                      {tr("IA ou minage · même station", "AI or mining · same workstation")}
+                    </h3>
+                    <p className="text-sm">
+                      {station.vram} Go · {station.bandwidth} Go/s ·{" "}
+                      {model?.name ?? forge.modelParamSize + "B"} ·{" "}
+                      {forge.quantization.toUpperCase()} · {forge.context} tokens
+                    </p>
+                    <label className="text-sm">
+                      {tr("Modèle IA de Forge", "Forge AI model")}
+                      <select
+                        className={input}
+                        value={forge.presetId}
+                        onChange={(e) => forge.applyPreset(e.target.value)}
+                      >
+                        {!model && <option value={forge.presetId}>{forge.modelParamSize}B</option>}
+                        {MODEL_PRESETS.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Field
+                      label={tr(
+                        "Tarif IA (€/million de tokens générés)",
+                        "AI price (€/million output tokens)",
+                      )}
+                      value={station.aiRate}
+                      change={(aiRate) => updateStation({ aiRate })}
+                    />
+                    <Field
+                      label={tr("Temps de génération facturé (%)", "Billable decode time (%)")}
+                      value={station.demand}
+                      max={100}
+                      change={(demand) => updateStation({ demand })}
+                    />
+                    <Field
+                      label={tr("Puissance IA moyenne à la prise (W)", "Average AI wall power (W)")}
+                      value={station.aiWatts}
+                      change={(aiWatts) => updateStation({ aiWatts })}
+                    />
+                    <Field
+                      label={tr(
+                        "Débit SHA-256d mesuré (GH/s par station)",
+                        "Measured SHA-256d (GH/s per workstation)",
+                      )}
+                      value={r.th * 1000}
+                      change={(gh) => patch({ th: gh / 1000 })}
+                    />
+                    <Field
+                      label={tr("Puissance minage à la prise (W)", "Mining wall power (W)")}
+                      value={r.watts}
+                      change={(watts) => patch({ watts })}
+                    />
+                    {ai ? (
+                      <>
+                        <p>
+                          {fmt(ai.speed, 1)} tok/s · {fmt(ai.tokens, 0)}{" "}
+                          {tr("tokens facturables/j", "billable tokens/day")}
+                        </p>
+                        {ai.margin !== null ? (
+                          <>
+                            <p>
+                              {tr("Recettes IA", "AI revenue")} · {fmt(ai.revenue)}{" "}
+                              {tr("€/j", "€/day")}
+                            </p>
+                            <p>
+                              {tr("Marge IA", "AI margin")}{" "}
+                              <strong>
+                                {fmt(ai.margin)} {tr("€/j", "€/day")}
+                              </strong>
+                            </p>
+                            {ai.payback !== null && (
+                              <p>
+                                {tr("Amortissement IA", "AI payback")} · {fmt(ai.payback, 1)}{" "}
+                                {tr("jours", "days")}
+                              </p>
+                            )}
+                            {a && (
+                              <p>
+                                {tr(
+                                  "Écart de marge IA moins minage",
+                                  "Margin difference, AI minus mining",
+                                )}{" "}
+                                <strong>
+                                  {fmt(ai.margin - a.margin)} {tr("€/j", "€/day")}
+                                </strong>
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p>
+                            {tr(
+                              "Renseignez le tarif IA et la puissance pour estimer la marge.",
+                              "Enter AI price and wall power to estimate margin.",
+                            )}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p>
+                        {tr(
+                          "Vérifiez la mémoire disponible et les heures prévues pour ce modèle.",
+                          "Check available memory and scheduled hours for this model.",
+                        )}
+                      </p>
+                    )}
+                    <small>
+                      {tr(
+                        "Deux usages alternatifs, mêmes horaires, quantité et charges fixes. Le débit IA est estimé. Le revenu dépend des tokens effectivement vendus.",
+                        "Alternative uses share the same schedule, quantity and fixed costs. AI throughput is estimated. Revenue depends on tokens actually sold.",
+                      )}
+                    </small>
+                  </div>
+                )}
                 <details className="my-4">
                   <summary className="cursor-pointer font-medium">
                     {tr("Machine, mesures et coûts", "Hardware, measurements and costs")}
@@ -359,7 +506,7 @@ function Mining() {
                         patch({
                           accepted: v === "accepted",
                           measured: true,
-                          th: v === "accepted" ? 0 : presets[r.preset].th,
+                          th: v === "accepted" || station ? 0 : presets[r.preset].th,
                         })
                       }
                     >
@@ -370,17 +517,21 @@ function Mining() {
                         {tr("Accepté, moyenne sur 24 h", "Accepted, full-day average")}
                       </option>
                     </Select>
-                    <Field
-                      label="TH/s"
-                      value={r.th}
-                      change={(v) => patch({ th: v, measured: true })}
-                    />
-                    <Field
-                      label={tr("Puissance à la prise (W)", "Wall power (W)")}
-                      value={r.watts}
-                      min={1}
-                      change={(v) => patch({ watts: v, measured: true })}
-                    />
+                    {!station && (
+                      <>
+                        <Field
+                          label="TH/s"
+                          value={r.th}
+                          change={(v) => patch({ th: v, measured: true })}
+                        />
+                        <Field
+                          label={tr("Puissance à la prise (W)", "Wall power (W)")}
+                          value={r.watts}
+                          min={1}
+                          change={(v) => patch({ watts: v, measured: true })}
+                        />
+                      </>
+                    )}
                     <Field
                       label={tr(
                         "Refroidissement supplémentaire (W/unité)",
@@ -450,10 +601,15 @@ function Mining() {
                 )}
                 {!a ? (
                   <p role="alert">
-                    {tr(
-                      "Vérifiez les heures de marche et le débit accepté.",
-                      "Check the scheduled hours and accepted hashrate.",
-                    )}
+                    {station && (!r.th || !r.watts)
+                      ? tr(
+                          "Complétez le débit SHA-256d et la puissance de minage pour calculer le retour Bitcoin.",
+                          "Enter SHA-256d hashrate and mining wall power to calculate Bitcoin returns.",
+                        )
+                      : tr(
+                          "Vérifiez les heures de marche et le débit accepté.",
+                          "Check the scheduled hours and accepted hashrate.",
+                        )}
                   </p>
                 ) : (
                   <>
@@ -468,7 +624,12 @@ function Mining() {
                     </strong>
                     <dl className="my-3 grid grid-cols-[1fr_auto] gap-2 text-sm">
                       {[
-                        [tr("Production attendue", "Expected payout"), fmt(a.btc, 8) + " BTC/j"],
+                        [
+                          tr("Production attendue", "Expected payout"),
+                          a.btc > 0 && a.btc < 1e-6
+                            ? fmt(a.btc * 1e8, 4) + " sat/j"
+                            : fmt(a.btc, 8) + " BTC/j",
+                        ],
                         [tr("Consommation", "Energy"), fmt(a.energy) + " kWh/j"],
                         [tr("Recettes", "Revenue"), fmt(a.revenue) + " €/j"],
                         [tr("Électricité", "Electricity"), fmt(a.electricity) + " €/j"],

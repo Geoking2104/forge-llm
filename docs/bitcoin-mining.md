@@ -20,3 +20,9 @@ Sources: [mempool API](https://mempool.space/docs/api/rest), [S21 Pro](https://s
 ## Reproducible check
 
 An S21 Pro running at 3,510 W for 24 hours uses 84.24 kWh. At €0.20/kWh that costs €16.848 per day before additional cooling. At 234 TH/s, difficulty 100 trillion, subsidy 3.125 BTC and zero fees, the expected payout is about 0.0001471 BTC/day. These are synthetic test conditions. The automated tests cover both payout and energy. Actual payout and meter records can be entered in the reconciliation panel.
+
+## Compare inference and mining on one workstation
+
+Use **Import a Forge LLM workstation** on the mining page. The selector includes the hardware catalog, saved custom builds and labels for the three current Forge slots. Alternatively paste a description or a supported retailer link, review accelerator memory, bandwidth, compute and whole-system price, then load the configuration into A, B or C. If the model cannot be identified, enter the missing specifications. A graphics card's listed price can be replaced with the installed PC's price.
+
+The AI calculation uses Forge's active model, context, weight precision, batch and cache settings. Enter your assumed selling price per million output tokens, fraction of online time spent on paid generation, and average wall power across those online hours. The Bitcoin scenario uses a separate measured SHA-256d rate and wall power. A description can provide explicit measurements such as `SHA-256d 750 MH/s · mining 340 W · AI 380 W`. The two alternatives use the same schedule, tariff, unit count and fixed costs. Revenue represents a scenario before tax and platform fees. The displayed difference is AI operating margin minus mining operating margin.
