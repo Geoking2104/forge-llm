@@ -1,4 +1,5 @@
 import { useRef, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { Download, MoreHorizontal, RotateCcw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -85,6 +86,7 @@ export function AppHeader({ onAddCustom }: { onAddCustom: () => void }) {
           </div>
         ) : null}
         <div className="flex items-center gap-2">
+          <Link to="/mining" className="rounded-full px-2 py-2 text-sm font-medium hover:bg-secondary">Bitcoin</Link>
           <LanguageSwitch />
           {entry !== "choose" ? (
             <>

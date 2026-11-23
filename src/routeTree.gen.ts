@@ -10,11 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MiningRouteImport } from './routes/mining'
 import { Route as ApiImgRouteImport } from './routes/api/img'
+import { Route as ApiMiningNetworkRouteImport } from './routes/api/mining-network'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MiningRoute = MiningRouteImport.update({
+  id: '/mining',
+  path: '/mining',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiImgRoute = ApiImgRouteImport.update({
@@ -22,31 +29,44 @@ const ApiImgRoute = ApiImgRouteImport.update({
   path: '/api/img',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMiningNetworkRoute = ApiMiningNetworkRouteImport.update({
+  id: '/api/mining-network',
+  path: '/api/mining-network',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/mining': typeof MiningRoute
   '/api/img': typeof ApiImgRoute
+  '/api/mining-network': typeof ApiMiningNetworkRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/mining': typeof MiningRoute
   '/api/img': typeof ApiImgRoute
+  '/api/mining-network': typeof ApiMiningNetworkRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/mining': typeof MiningRoute
   '/api/img': typeof ApiImgRoute
+  '/api/mining-network': typeof ApiMiningNetworkRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/img'
+  fullPaths: '/' | '/mining' | '/api/img' | '/api/mining-network'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/img'
-  id: '__root__' | '/' | '/api/img'
+  to: '/' | '/mining' | '/api/img' | '/api/mining-network'
+  id: '__root__' | '/' | '/mining' | '/api/img' | '/api/mining-network'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MiningRoute: typeof MiningRoute
   ApiImgRoute: typeof ApiImgRoute
+  ApiMiningNetworkRoute: typeof ApiMiningNetworkRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +78,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mining': {
+      id: '/mining'
+      path: '/mining'
+      fullPath: '/mining'
+      preLoaderRoute: typeof MiningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/img': {
       id: '/api/img'
       path: '/api/img'
@@ -65,12 +92,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiImgRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mining-network': {
+      id: '/api/mining-network'
+      path: '/api/mining-network'
+      fullPath: '/api/mining-network'
+      preLoaderRoute: typeof ApiMiningNetworkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MiningRoute: MiningRoute,
   ApiImgRoute: ApiImgRoute,
+  ApiMiningNetworkRoute: ApiMiningNetworkRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
