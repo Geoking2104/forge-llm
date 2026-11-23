@@ -12,9 +12,10 @@ import { CustomSheet } from "./custom-sheet";
 import { FormulaNotes } from "./formula-notes";
 import { ModelForStation } from "./model-for-station";
 import { InspectPanel } from "./inspect-panel";
-import { bytesForQuant, compareSlots, requiredVramGB, weightGB } from "@/lib/calc";
+import { bytesForQuant, compareSlots, decodeWorkload } from "@/lib/calc";
 import { parseProductText } from "@/lib/parser";
 import { slotHardware, useForgeStore } from "@/lib/store";
+import { MODEL_PRESETS } from "@/lib/models";
 import i18n from "@/i18n";
 
 export function ForgeApp() {
@@ -47,8 +48,8 @@ export function ForgeApp() {
   }, [setHydrated]);
 
   const bytes = bytesForQuant(quantization);
-  const modelWeight = weightGB(modelParamSize, bytes);
-  const required = requiredVramGB(modelParamSize, bytes, context);
+  const work = useMemo(() => decodeWorkload(modelParamSize, bytes, context, MODEL_PRESETS.find(m => m.id === state.presetId), state.batch, state.kvBytes, state.utilization), [modelParamSize, bytes, context, state.presetId, state.batch, state.kvBytes, state.utilization]);
+  const required = work.required;
 
   const slotA = slotHardware(state, "A");
   const slotB = slotHardware(state, "B");
@@ -74,8 +75,8 @@ export function ForgeApp() {
     : null;
 
   const analysis = useMemo(
-    () => compareSlots(slotA, slotB, slotC, modelWeight, required, modelParamSize),
-    [slotA, slotB, slotC, modelWeight, required, modelParamSize],
+    () => compareSlots(slotA, slotB, slotC, work),
+    [slotA, slotB, slotC, work],
   );
 
   return (
@@ -88,7 +89,7 @@ export function ForgeApp() {
           <Hero kicker={t("brand.kicker")} title={t("hero.modelTitle")} body={t("hero.modelBody")} />
           <div className="grid min-w-0 gap-6 lg:grid-cols-3">
             <div className="flex min-w-0 flex-col gap-6 lg:col-span-1">
-              <ModelPanel />
+              <ModelPanel work={work} />
               <ParserPanel />
               <FormulaNotes />
             </div>
@@ -97,7 +98,7 @@ export function ForgeApp() {
                 <div className="mb-6">
                   <InspectPanel
                     parsed={parsedListing}
-                    modelWeightGB={modelWeight}
+                    work={work}
                     requiredVram={required}
                   />
                 </div>
@@ -111,7 +112,7 @@ export function ForgeApp() {
           <Hero kicker={t("brand.kicker")} title={t("hero.stationTitle")} body={t("hero.stationBody")} />
           <div className="grid min-w-0 gap-6 lg:grid-cols-3">
             <div className="flex min-w-0 flex-col gap-6 lg:col-span-1">
-              <ModelPanel />
+              <ModelPanel work={work} />
               <ParserPanel />
               <FormulaNotes />
             </div>
@@ -119,7 +120,7 @@ export function ForgeApp() {
               {parsedListing ? (
                 <InspectPanel
                   parsed={parsedListing}
-                  modelWeightGB={modelWeight}
+                  work={work}
                   requiredVram={required}
                 />
               ) : null}
@@ -127,27 +128,24 @@ export function ForgeApp() {
                 <SlotCard
                   id="A"
                   hardware={slotA}
-                  modelWeightGB={modelWeight}
+                  work={work}
                   requiredVram={required}
-                  paramsB={modelParamSize}
                   isWinner={analysis.winner?.id === "A"}
                   isValue={analysis.bestValue?.id === "A"}
                 />
                 <SlotCard
                   id="B"
                   hardware={slotB}
-                  modelWeightGB={modelWeight}
+                  work={work}
                   requiredVram={required}
-                  paramsB={modelParamSize}
                   isWinner={analysis.winner?.id === "B"}
                   isValue={analysis.bestValue?.id === "B"}
                 />
                 <SlotCard
                   id="C"
                   hardware={slotC}
-                  modelWeightGB={modelWeight}
+                  work={work}
                   requiredVram={required}
-                  paramsB={modelParamSize}
                   isWinner={analysis.winner?.id === "C"}
                   isValue={analysis.bestValue?.id === "C"}
                 />
@@ -155,11 +153,9 @@ export function ForgeApp() {
               <AnalysisBanner analysis={analysis} />
               <BandwidthExplorer
                 slots={analysis.slots}
-                modelWeightGB={modelWeight}
-                paramsB={modelParamSize}
-                bytesPerParam={bytes}
+                work={work}
               />
-              <Catalog modelWeightGB={modelWeight} requiredVram={required} />
+              <Catalog work={work} requiredVram={required} />
             </div>
           </div>
         </main>

@@ -52,6 +52,14 @@ export const resources = {
       },
       model: {
         title: "Modèle cible",
+        utilization: "Utilisation effective estimée",
+        batch: "Séquences simultanées",
+        cachePrecision: "Précision du cache KV",
+        latency: "Intervalle par token",
+        aggregate: "Débit cumulé",
+        memOnly: "Plafond mémoire seul (calcul inconnu)",
+        approx: "Cache approximé à partir de la taille du modèle.",
+        noPrice: "Prix manquants pour comparer la valeur.",
         desc: "Poids, quantification et fenêtre de contexte.",
         preset: "Préréglage",
         choose: "Choisir un modèle",
@@ -88,8 +96,8 @@ export const resources = {
       },
       bw: {
         title: "Impact de la bande passante",
-        desc: "En décodage, chaque token relit tout le modèle. Le débit suit la bande passante, pas les TFLOPS, tant que l’intensité ({{intensity}} FLOP/o) reste sous la crête du GPU.",
-        curve: "Courbe : tok/s = bande passante / empreinte du modèle (efficacité 1,0). Points : slots A, B, C.",
+        desc: "Intensité du scénario de décodage · {{intensity}} FLOP/B.",
+        curve: "Courbe théorique de bande passante à 100 % du débit annoncé. Les points représentent les estimations par séquence.",
         whatIf: "Et si la bande passante…",
         simulated: "Débit simulé",
         tokens: "{{count}} tokens",
@@ -106,7 +114,7 @@ export const resources = {
         insightGap:
           "Sur {{name}}, le plafond calcul atteint {{compute}} tok/s contre {{mem}} tok/s en mémoire — un écart de ×{{ratio}}. Doubler les TFLOPS ne change presque rien ; doubler les Go/s double le texte.",
         insightClose:
-          "Sur {{name}}, le plafond calcul atteint {{compute}} tok/s contre {{mem}} tok/s en mémoire. Les deux plafonds sont proches : ce modèle commence à saturer le calcul.",
+          "Sur {{name}}, le plafond calcul atteint {{compute}} tok/s et le plafond mémoire {{mem}} tok/s.",
       },
       catalog: {
         title: "Catalogue matériel",
@@ -194,13 +202,13 @@ export const resources = {
           "Cœurs × horloge (GHz) × 2 opérations par cycle / 1000. Utile pour le calcul dense ; l’inférence LLM est rarement limitée par ce chiffre.",
         vramTitle: "VRAM requise",
         vramBody:
-          "Paramètres (milliards) × octets/paramètre × 1,2 de marge, plus un KV-cache proportionnel au contexte. FP16 = 2 o, INT8 = 1 o, Q4 = 0,5 o.",
+          "Poids résidents et cache de toutes les séquences, avec 20 % de marge. La mémoire unifiée réserve aussi 4 Go au système.",
         speedTitle: "Débit (tok/s)",
         speedBody:
-          "Bande passante mémoire (Go/s) / empreinte réelle du modèle (Go), corrigée d’un facteur d’efficacité constructeur (NVIDIA 1,0 · Apple 0,82 · AMD 0,72).",
+          "Le débit par séquence utilise le plus bas des plafonds de bande passante et de calcul disponibles. Les poids actifs, le cache et la taille du lot déterminent le trafic.",
         roofTitle: "Roofline",
         roofBody:
-          "Intensité du décodage = 2 FLOPs par octet lu. Crête GPU = TFLOPS × 1000 / Go/s. Si l’intensité est sous la crête — le cas de tous les LLM en batch 1 — le goulot est la mémoire, pas le calcul.",
+          "Ces plafonds supposent un modèle entièrement résident. Les pilotes, les noyaux de calcul, la chauffe et les échanges entre GPU peuvent réduire le débit réel.",
       },
       custom: {
         title: "Configuration sur mesure",
@@ -293,6 +301,14 @@ export const resources = {
       },
       model: {
         title: "Target model",
+        utilization: "Assumed runtime utilization",
+        batch: "Concurrent sequences",
+        cachePrecision: "KV cache precision",
+        latency: "Inter-token latency",
+        aggregate: "Aggregate throughput",
+        memOnly: "Memory ceiling only (compute unknown)",
+        approx: "Cache approximated from parameter count.",
+        noPrice: "Prices unavailable for value comparison.",
         desc: "Weights, quantization, and context window.",
         preset: "Preset",
         choose: "Choose a model",
@@ -329,8 +345,8 @@ export const resources = {
       },
       bw: {
         title: "Memory bandwidth impact",
-        desc: "In decode, every token rereads the whole model. Throughput follows bandwidth, not TFLOPS, as long as intensity ({{intensity}} FLOP/B) stays under the GPU ridge.",
-        curve: "Curve: tok/s = bandwidth / model footprint (efficiency 1.0). Dots: slots A, B, C.",
+        desc: "Decode workload intensity · {{intensity}} FLOP/B.",
+        curve: "The curve shows the ideal memory ceiling at peak bandwidth. Points show estimated per-sequence throughput.",
         whatIf: "What if bandwidth were…",
         simulated: "Simulated speed",
         tokens: "{{count}} tokens",
@@ -347,7 +363,7 @@ export const resources = {
         insightGap:
           "On {{name}}, the compute ceiling is {{compute}} tok/s versus {{mem}} tok/s from memory — a ×{{ratio}} gap. Doubling TFLOPS barely moves the needle; doubling GB/s doubles the text.",
         insightClose:
-          "On {{name}}, the compute ceiling is {{compute}} tok/s versus {{mem}} tok/s from memory. The two roofs are close: this model is starting to saturate compute.",
+          "On {{name}}, the compute ceiling is {{compute}} tok/s and the memory ceiling is {{mem}} tok/s.",
       },
       catalog: {
         title: "Hardware catalog",
@@ -435,13 +451,13 @@ export const resources = {
           "Cores × clock (GHz) × 2 ops per cycle / 1000. Useful for dense compute; LLM inference is rarely limited by this number.",
         vramTitle: "VRAM required",
         vramBody:
-          "Parameters (billions) × bytes/param × 1.2 headroom, plus a KV-cache that scales with context. FP16 = 2 B, INT8 = 1 B, Q4 = 0.5 B.",
+          "Resident weights and cache for all sequences, plus 20% headroom. Unified memory also reserves 4 GB for the OS.",
         speedTitle: "Throughput (tok/s)",
         speedBody:
-          "Memory bandwidth (GB/s) / real model footprint (GB), corrected by a vendor efficiency factor (NVIDIA 1.0 · Apple 0.82 · AMD 0.72).",
+          "Per-sequence decode speed uses the lower available bandwidth and compute ceiling. Active weights, cache and batch size determine traffic.",
         roofTitle: "Roofline",
         roofBody:
-          "Decode intensity = 2 FLOPs per byte read. GPU ridge = TFLOPS × 1000 / GB/s. If intensity sits under the ridge — true of every LLM at batch 1 — the bottleneck is memory, not compute.",
+          "Ceilings assume fully resident inference. Drivers, kernels, thermal limits and inter-GPU transfers can reduce sustained throughput.",
       },
       custom: {
         title: "Custom configuration",

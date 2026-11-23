@@ -15,18 +15,18 @@ export function suggestCheaperEquivalents(
   listedPrice: number,
   pool: Hardware[],
   requiredVram: number,
-  modelWeightGB: number,
+  work: import("./calc").Workload,
 ): Suggestion[] {
   if (!(listedPrice > 0)) return [];
-  const speed = tokensPerSec(current, modelWeightGB);
-  const listedFits = vramFits(current, requiredVram);
+  const speed = tokensPerSec(current, work);
+
 
   const deals = pool
     .filter((h) => {
       if (h.priceNum <= 0 || h.priceNum >= listedPrice) return false;
       if (h.vram + 1e-6 < current.vram) return false;
-      if (tokensPerSec(h, modelWeightGB) + 1e-6 < speed) return false;
-      if (listedFits && !vramFits(h, requiredVram)) return false;
+      if (tokensPerSec(h, work) + 1e-6 < speed) return false;
+      if (!vramFits(h, requiredVram)) return false;
       return true;
     })
     .sort((a, b) => a.priceNum - b.priceNum || b.vram - a.vram);
@@ -49,7 +49,7 @@ export function suggestAlternatives(
   current: Hardware,
   pool: Hardware[],
   requiredVram: number,
-  modelWeightGB: number,
+  work: import("./calc").Workload,
 ): Suggestion[] {
-  return suggestCheaperEquivalents(current, current.priceNum, pool, requiredVram, modelWeightGB);
+  return suggestCheaperEquivalents(current, current.priceNum, pool, requiredVram, work);
 }

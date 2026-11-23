@@ -9,6 +9,12 @@ import { AMAZON_AFFILIATE, type AffiliateEvent, type AffiliateTags } from "./aff
 export type EntryMode = "choose" | "station" | "model";
 
 type ForgeState = {
+  utilization: number;
+  setUtilization: (n: number) => void;
+  batch: number;
+  kvBytes: number;
+  setBatch: (n: number) => void;
+  setKvBytes: (n: number) => void;
   hydrated: boolean;
   locale: Locale;
   entry: EntryMode;
@@ -37,7 +43,7 @@ type ForgeState = {
   setModelParamSize: (n: number) => void;
   setQuantization: (q: QuantKey) => void;
   setContext: (n: number) => void;
-  applyPreset: (id: string) => void;
+  applyPreset: (id: string, preserveWorkload?: boolean) => void;
   setSlot: (slot: SlotId, hardwareId: string) => void;
   addHardware: (hw: Hardware) => void;
   removeHardware: (id: string) => void;
@@ -65,6 +71,12 @@ const defaultC = "studio-m4-max-64";
 export const useForgeStore = create<ForgeState>()(
   persist(
     (set, get) => ({
+      utilization: 0.8,
+      setUtilization: (utilization) => set({ utilization }),
+      batch: 1,
+      kvBytes: 2,
+      setBatch: (batch) => set({ batch }),
+      setKvBytes: (kvBytes) => set({ kvBytes }),
       hydrated: false,
       locale: "fr",
       entry: "choose",
@@ -93,14 +105,14 @@ export const useForgeStore = create<ForgeState>()(
       setModelParamSize: (n) => set({ modelParamSize: n, presetId: "custom" }),
       setQuantization: (q) => set({ quantization: q }),
       setContext: (n) => set({ context: n }),
-      applyPreset: (id) => {
+      applyPreset: (id, preserveWorkload = false) => {
+        if (id === "custom") { set({ presetId: id }); return; }
         const p = MODEL_PRESETS.find((m) => m.id === id);
         if (!p) return;
         set({
           presetId: p.id,
           modelParamSize: p.paramsB,
-          quantization: p.defaultQuant,
-          context: p.context,
+          ...(preserveWorkload ? {} : { quantization: p.defaultQuant, context: p.context }),
         });
       },
       setSlot: (slot, hardwareId) => {
@@ -128,6 +140,7 @@ export const useForgeStore = create<ForgeState>()(
       replaceAll: (payload) => set({ ...payload }),
       resetDefaults: () =>
         set({
+          batch: 1, kvBytes: 2, utilization: 0.8,
           pool: DEFAULT_HARDWARE,
           slotAId: defaultA,
           slotBId: defaultB,
@@ -158,6 +171,7 @@ export const useForgeStore = create<ForgeState>()(
       name: "forge-hardware-v2",
       skipHydration: true,
       partialize: (s) => ({
+        utilization: s.utilization, batch: s.batch, kvBytes: s.kvBytes,
         locale: s.locale,
         entry: s.entry,
         focusHardwareId: s.focusHardwareId,

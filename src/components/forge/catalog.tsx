@@ -12,10 +12,10 @@ import { ProductPhoto } from "./product-art";
 import { hardwareImage } from "@/lib/product-images";
 
 export function Catalog({
-  modelWeightGB,
+  work,
   requiredVram,
 }: {
-  modelWeightGB: number;
+  work: import("@/lib/calc").Workload;
   requiredVram: number;
 }) {
   const { t } = useTranslation();
@@ -26,7 +26,7 @@ export function Catalog({
   const ranked = [...pool]
     .map((h) => {
       const fits = vramFits(h, requiredVram);
-      const speed = tokensPerSec(h, modelWeightGB);
+      const speed = tokensPerSec(h, work);
       return { h, fits, speed, value: fits ? valueScore(speed, h.priceNum) : 0 };
     })
     .sort((a, b) => {
@@ -85,7 +85,7 @@ export function Catalog({
                 <FitBadge fits={fits} />
               </div>
               <p className="font-mono text-xs tabular-nums text-muted">
-                {h.vram} Go · {h.tflops} TF · {h.bandwidth} Go/s · {fits ? `${speed} tok/s` : "—"} ·{" "}
+                {h.vram} Go · {h.tflops || "—"} TF · {h.bandwidth} Go/s · {fits ? `${speed} tok/s` : "—"} ·{" "}
                 {formatEur(h.priceNum)}
               </p>
               <RowActions h={h} onLoad={setSlot} onRemove={removeHardware} />
@@ -134,7 +134,7 @@ function CatalogRow({
         </div>
       </td>
       <td className="px-3 py-3 font-mono tabular-nums">{h.vram}</td>
-      <td className="px-3 py-3 font-mono tabular-nums">{h.tflops}</td>
+      <td className="px-3 py-3 font-mono tabular-nums">{h.tflops || "—"}</td>
       <td className="px-3 py-3 font-mono tabular-nums">{h.bandwidth}</td>
       <td className="px-3 py-3 font-mono tabular-nums">{fits ? speed : "—"}</td>
       <td className="px-3 py-3 font-mono tabular-nums">{formatEur(h.priceNum)}</td>

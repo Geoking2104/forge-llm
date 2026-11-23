@@ -8,6 +8,7 @@ export function AnalysisBanner({ analysis }: { analysis: ComparisonResult }) {
   const failed = !analysis.winner;
   const rationale = !analysis.winner
     ? t("analysis.noneBody")
+    : !analysis.bestValue ? t("model.noPrice")
     : analysis.winner.id === analysis.bestValue?.id
       ? t("analysis.same", { slot: analysis.winner.id, speed: analysis.winner.speed })
       : t("analysis.split", {

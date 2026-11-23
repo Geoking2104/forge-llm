@@ -27,11 +27,11 @@ function hostRetailer(url: string | null) {
 
 export function InspectPanel({
   parsed,
-  modelWeightGB,
+  work,
   requiredVram,
 }: {
   parsed: ParsedProduct;
-  modelWeightGB: number;
+  work: import("@/lib/calc").Workload;
   requiredVram: number;
 }) {
   const { t } = useTranslation();
@@ -45,9 +45,9 @@ export function InspectPanel({
 
   const hw = parsedToHardware(parsed);
   const fits = vramFits(hw, requiredVram);
-  const speed = tokensPerSec(hw, modelWeightGB);
+  const speed = tokensPerSec(hw, work);
   const listedPrice = parsed.priceExact ? parsed.priceNum : 0;
-  const alts = suggestCheaperEquivalents(hw, listedPrice, pool, requiredVram, modelWeightGB);
+  const alts = suggestCheaperEquivalents(hw, listedPrice, pool, requiredVram, work);
 
   const retailer =
     (parsed.retailerId ? RETAILERS.find((r) => r.id === parsed.retailerId) : null) ??
@@ -115,7 +115,7 @@ export function InspectPanel({
                 hint={`${formatNumber(requiredVram, 1)} Go ${t("model.vram").toLowerCase()}`}
                 ok={fits}
               />
-              <Stat label={t("parser.flops")} value={formatNumber(hw.tflops)} hint="TFLOPS" />
+              <Stat label={t("parser.flops")} value={hw.tflops ? formatNumber(hw.tflops) : "—"} hint="TFLOPS" />
               <Stat
                 label={t("parser.priceExact")}
                 value={parsed.priceExact ? formatEur(parsed.priceNum, true) : t("parser.noPrice")}
@@ -156,7 +156,7 @@ export function InspectPanel({
                   key={s.hardware.id}
                   hardware={s.hardware}
                   save={s.save}
-                  modelWeightGB={modelWeightGB}
+                  work={work}
                   onLoad={() => {
                     addHardware(s.hardware);
                     setFocus(s.hardware.id);
@@ -199,16 +199,16 @@ function Stat({
 function DealCard({
   hardware,
   save,
-  modelWeightGB,
+  work,
   onLoad,
 }: {
   hardware: Hardware;
   save: number;
-  modelWeightGB: number;
+  work: import("@/lib/calc").Workload;
   onLoad: () => void;
 }) {
   const { t } = useTranslation();
-  const speed = tokensPerSec(hardware, modelWeightGB);
+  const speed = tokensPerSec(hardware, work);
   return (
     <div className="flex gap-3 rounded-xl bg-secondary p-4">
       <ProductPhoto
@@ -225,7 +225,7 @@ function DealCard({
       <p className="font-display text-2xl font-semibold tabular-nums">{formatEur(hardware.priceNum)}</p>
       <p className="text-sm text-ok">{t("parser.whyDeal", { delta: formatEur(save) })}</p>
       <p className="font-mono text-xs tabular-nums text-muted">
-        {speed} tok/s · {formatNumber(hardware.tflops)} TF · {hardware.vram} Go
+        {speed} tok/s · {hardware.tflops ? formatNumber(hardware.tflops) : "—"} TF · {hardware.vram} Go
       </p>
       <Button size="sm" variant="outline" onClick={onLoad}>
         {t("parser.useStation")}

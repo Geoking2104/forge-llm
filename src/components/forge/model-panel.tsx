@@ -5,13 +5,13 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { MODEL_PRESETS, QUANT_OPTIONS } from "@/lib/models";
-import { bytesForQuant, kvCacheGB, requiredVramGB, weightGB } from "@/lib/calc";
+import type { Workload } from "@/lib/calc";
 import { useForgeStore } from "@/lib/store";
 import { formatNumber } from "@/lib/utils";
 
 const CONTEXTS = [2048, 4096, 8192, 16384, 32768, 65536, 131072];
 
-export function ModelPanel() {
+export function ModelPanel({ work }: { work: Workload }) {
   const { t } = useTranslation();
   const modelParamSize = useForgeStore((s) => s.modelParamSize);
   const quantization = useForgeStore((s) => s.quantization);
@@ -22,10 +22,8 @@ export function ModelPanel() {
   const setContext = useForgeStore((s) => s.setContext);
   const applyPreset = useForgeStore((s) => s.applyPreset);
 
-  const bytes = bytesForQuant(quantization);
-  const weights = weightGB(modelParamSize, bytes);
-  const kv = kvCacheGB(modelParamSize, context, bytes);
-  const required = requiredVramGB(modelParamSize, bytes, context);
+  const { weights, kv, required } = work;
+  const { batch, kvBytes, utilization, setUtilization, setBatch, setKvBytes } = useForgeStore();
 
   return (
     <Card>
@@ -99,6 +97,24 @@ export function ModelPanel() {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-sm">{t("model.batch")}
+            <select className="block w-full rounded bg-secondary p-2" value={batch} onChange={e => setBatch(Number(e.target.value))}>
+              {[1, 2, 4, 8, 16].map(n => <option key={n}>{n}</option>)}
+            </select>
+          </label>
+          <label className="text-sm">{t("model.cachePrecision")}
+            <select className="block w-full rounded bg-secondary p-2" value={kvBytes} onChange={e => setKvBytes(Number(e.target.value))}>
+              <option value={2}>FP16</option><option value={1}>INT8</option>
+            </select>
+          </label>
+        </div>
+        <div>
+          <Label htmlFor="utilization">{t("model.utilization")} · {Math.round(utilization * 100)} %</Label>
+          <Slider id="utilization" className="mt-3" min={10} max={100} step={5} value={[Math.round(utilization * 100)]}
+            onValueChange={([n]) => setUtilization(n / 100)} />
+        </div>
+        {!MODEL_PRESETS.find(m => m.id === presetId)?.attention && <small>{t("model.approx")}</small>}
         <div className="rounded-xl bg-secondary p-4">
           <div className="flex items-end justify-between gap-3">
             <div>
